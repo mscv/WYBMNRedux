@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Addon Author="mscv" APIVersion="9" Name="WYBMNRedux" Description="">
+<!-- Libs -->
+	<Script Name="Libs/GeminiTimer/GeminiTimer-1.0.lua"/>
+	<Script Name="Libs/CallbackHandler/CallbackHandler-1.0.lua"/>
+	<Script Name="Libs/GeminiDB/GeminiDB-1.0.lua"/>
+	<Script Name="Libs/GeminiAddon/GeminiAddon.lua"/>
+<!-- /Libs -->
+<!-- Core -->
+    <Script Name="Core.lua"/>
+    <Form Name="Core.xml"/>
+<!-- /Core -->
+<!-- Settings -->
+    <Script Name="Settings.lua"/>
+    <Form Name="Settings.xml"/>
+<!-- /Settings -->
+<!-- Search -->
+    <Script Name="Search.lua"/>
+    <Form Name="Search.xml"/>
+<!-- /Search -->
+</Addon>

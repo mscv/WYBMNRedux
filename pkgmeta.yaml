@@ -1,0 +1,19 @@
+package-as: WYBMNRedux
+enable-nolib-creation: no
+
+externals:
+  Libs/CallbackHandler:
+    url: https://github.com/wildstarnasa/CallbackHandler.git
+    tag: latest
+  Libs/GeminiTimer:
+    url: https://github.com/wildstarnasa/GeminiTimer.git
+    tag: latest
+  Libs/GeminiAddon:
+    url: https://github.com/wildstarnasa/GeminiAddon.git
+    tag: latest
+  Libs/GeminiDB:
+    url: https://github.com/wildstarnasa/GeminiDB.git
+    tag: latest
+
+ignore:
+  - README.md

@@ -2,18 +2,18 @@
 
 TO DO:
 1) convert tNeighbours into a circular DLL
-4) add autoaccept/decline
-
+2) decouple target neighbour from current neighbour
 --]]
 
-local VERSION = '1.0.1'
+local VERSION = '1.0.2'
 local FAKE_WYBMN_VERSION = 1.047
 
-local ONLINE_STALE_TIME = 30
+local ONLINE_STALE_TIME
+local ONLINE_STALE_TIME_NEW = 30
 local ONLINE_STALE_TIME_LEGACY = 10 -- the original WYBMN ignores users not seen in the past 10s
 
 
-local next, tremove, floor, max, getTime = next, table.remove, math.floor, math.max, os.time
+local next, tsort, tremove, floor, max, getTime = next, table.sort, table.remove, math.floor, math.max, os.time
 local ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, HousingLib, String_GetWeaselString = ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, HousingLib, String_GetWeaselString
  
 -----------------------------------------------------------------------------------------------
@@ -73,7 +73,7 @@ local tPlugItem2NodeType = {
 
 local bAddonComms, bLegacySupport, bAutoToggle, bAutoAccept, bAutoDecline
 
-local wndMain, wndCurrentPlot, wndTargetPlot
+local wndMain, wndCurrentPlot, wndTargetPlot, wndCounter
 
 local colorOnline = ApolloColor.new("UI_TextHoloBodyHighlight")
 local colorOffline = ApolloColor.new("UI_BtnTextGrayNormal")
@@ -135,8 +135,10 @@ function Addon:OnEnable()
 	self.xmlDoc = XmlDoc.CreateFromFile("Core.xml")
 	
 	wndMain = Apollo.LoadForm(self.xmlDoc, "WYBMNReduxMain", nil, self)
-	wndCurrentPlot = wndMain:FindChild("currentPlot")
-	wndTargetPlot = wndMain:FindChild("targetPlot")
+	wndCurrentPlot = wndMain:FindChild('plotInfo:currentPlot')
+	wndTargetPlot = wndMain:FindChild('plotInfo:targetPlot')
+	
+	wndCounter = wndMain:FindChild('interfaceButtons:wndCounter')
 	
 	self.xmlDoc = nil
 	
@@ -156,9 +158,7 @@ function Addon:OnEnable()
 	
 	self:DbProfileUpdate()
 	
-	if bLegacySupport then
-		ONLINE_STALE_TIME = ONLINE_STALE_TIME_LEGACY
-	end
+	ONLINE_STALE_TIME = bLegacySupport and ONLINE_STALE_TIME_LEGACY or ONLINE_STALE_TIME_NEW
 
 	if bAddonComms then
 		if bLegacySupport then -- listen to legacy plot info messages
@@ -242,9 +242,14 @@ function Addon:OnSlashCmd()
     self:UpdateTargetPlot()
 end
 
+local function sortNB(a, b)
+	return ( a.strCharacterName or '' ) < ( b.strCharacterName or '' )
+end
+
 function Addon:RefreshNeighbourList()
 	local tNList = HousingLib.GetNeighborList()
-
+	tsort(tNList, sortNB)
+	
 	while tremove(tNeighbours) do end
 	while tremove(tNeighboursKeys) do end
 	
@@ -258,7 +263,6 @@ function Addon:RefreshNeighbourList()
 	end
 	tNeighbours[0] = { name = self.myData.name, id = 0, lastOnline = 0 , shareRatio = self.myData.shareRatio, nodeType = self.myData.nodeType } -- add self
 	
-	self:UpdateCurrentPlot()
     self:UpdateTargetPlot()
 	
 	return true
@@ -292,6 +296,8 @@ function Addon:UpdateTargetPlot()
 	wndTargetPlot:FindChild("plotType"):SetText(tNodeType2Name[tOwnerData.nodeType] or 'Unknown')
 	wndTargetPlot:FindChild("plotLastOnline"):SetText(helperFDaysToTime(tOwnerData.lastOnline) or 'Unknown')
 	wndTargetPlot:FindChild("plotName"):SetTextColor(tOwnerData.lastOnline == 0 and colorOnline or colorOffline)
+	
+	wndCounter:SetText(self:NeighbourNext() .. '/' .. #tNeighbours)
 end
 
 function Addon:OnChangeWorld()
@@ -350,6 +356,8 @@ function Addon:OnMessageOnlineInfo(_, tMsg)
 		tMsg.nodeType	= plotInfo.nodeType
 		tMsg.shareRatio	= plotInfo.shareRatio
 		tMsg.faction	= plotInfo.faction
+		
+		tMsg.legacy		= true
 	end
 	
 	if not tMsg.name or not tMsg.nodeType or not tMsg.shareRatio or not tMsg.faction or tMsg.faction ~= self.myData.faction then return end
@@ -404,7 +412,7 @@ do
 		["Dickicht (Rang 4)"]			= 34,
 		["Elite-Dickicht"]				= 35,
 	}
-	function Addon:OnMessagePlotInfo(z, tMsg)
+	function Addon:OnMessagePlotInfo(_, tMsg)
 		if type(tMsg) ~= 'table' then return end
 		
 		if not tMsg.name or not tMsg.share or not tMsg.nodetype or not tMsg.faction or not tMsg.remaining or not tMsg.timestamp or not tMsg.version or type(tMsg.share) == 'table' then return end
@@ -476,10 +484,11 @@ function Addon:GetOnlineUsersFiltered()
 	local filterNodeLevel = db.char.filterNodeLevel
 	local filterShareRatio = db.char.filterShareRatio
 	
-	local staleTime = getTime() - ONLINE_STALE_TIME
+	local staleTimeNew = getTime() - ONLINE_STALE_TIME_NEW
+	local staleTimeLegacy = getTime() - ONLINE_STALE_TIME_LEGACY
 
 	for k,v in next, tOnlineUsers do
-		if v.lastSeen < staleTime then
+		if v.lastSeen < (v.legacy and staleTimeLegacy or staleTimeNew)  then
 			tOnlineUsers[k] = nil
 		elseif floor(v.nodeType / 10) == filterNodeType and v.nodeType%10 >= filterNodeLevel and v.shareRatio >= filterShareRatio then
 			tFiltered[k] = v

@@ -48,6 +48,7 @@
             <Control Class="Button" Base="CRB_DatachronSprites:btnDCM_DeleteItem" Font="DefaultButton" ButtonType="PushButton" RadioGroup="" LAnchorPoint="0.68750" LAnchorOffset="0" TAnchorPoint="0" TAnchorOffset="0" RAnchorPoint="0.80000" RAnchorOffset="0" BAnchorPoint="1.00000" BAnchorOffset="0" DT_VCENTER="1" DT_CENTER="1" BGColor="UI_BtnBGDefault" TextColor="UI_BtnTextDefault" NormalTextColor="UI_BtnTextDefault" PressedTextColor="UI_BtnTextDefault" FlybyTextColor="UI_BtnTextDefault" PressedFlybyTextColor="UI_BtnTextDefault" DisabledTextColor="UI_BtnTextDefault" TooltipType="OnCursor" Name="btnDelete" TooltipColor="" Text="" Tooltip="Delete TARGET neighbour." TooltipId="" TooltipFont="CRB_Pixel_O">
                 <Event Name="ButtonSignal" Function="OnButtonDelete"/>
             </Control>
+            <Control Class="Window" LAnchorPoint="0.8" LAnchorOffset="0" TAnchorPoint="0" TAnchorOffset="0" RAnchorPoint="1" RAnchorOffset="0" BAnchorPoint="1" BAnchorOffset="0" RelativeToClient="1" Font="CRB_Pixel_O" Text="" BGColor="UI_WindowBGDefault" TextColor="UI_WindowTextDefault" Template="Default" TooltipType="OnCursor" Name="wndCounter" TooltipColor="" DT_CENTER="1" DT_VCENTER="1" TextId="CRB_00"/>
         </Control>
     </Form>
 </Forms>

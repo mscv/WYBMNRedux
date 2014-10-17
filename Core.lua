@@ -5,7 +5,7 @@ TO DO:
 2) decouple target neighbour from current neighbour
 --]]
 
-local VERSION = '1.0.2'
+local VERSION = '1.0.3'
 local FAKE_WYBMN_VERSION = 1.047
 
 local ONLINE_STALE_TIME

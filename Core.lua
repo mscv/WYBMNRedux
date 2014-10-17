@@ -99,6 +99,7 @@ local tPlotInfos = {}
 
 function Addon:OnInitialize()
 	Apollo.RegisterSlashCommand("wybmnr", "OnSlashCmd", self)
+	Apollo.RegisterSlashCommand("wybmnrvisit", "OnButtonVisit", self)
 	
 	local defaults = {
 		char = {
@@ -243,7 +244,11 @@ function Addon:OnSlashCmd()
 end
 
 local function sortNB(a, b)
-	return ( a.strCharacterName or '' ) < ( b.strCharacterName or '' )
+	if a.ePermissionNeighbor ~= b.ePermissionNeighbor then
+		return a.ePermissionNeighbor > b.ePermissionNeighbor
+	else
+		return ( a.strCharacterName or '' ) < ( b.strCharacterName or '' )
+	end
 end
 
 function Addon:RefreshNeighbourList()
@@ -330,6 +335,9 @@ function Addon:UpdateOwnData()
 		self.myDataLegacy.nodetype	= tNodeType2Name[self.myData.nodeType]
 		self.myDataLegacy.timestamp	= getTime() + 100000 -- doesn't matter
 	end
+	
+	tNeighbours[0] = { name = self.myData.name, id = 0, lastOnline = 0 , shareRatio = self.myData.shareRatio, nodeType = self.myData.nodeType } -- update self
+
 end
 
 function Addon:BroadcastOwnData()

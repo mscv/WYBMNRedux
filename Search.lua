@@ -1,4 +1,4 @@
-local Apollo = Apollo
+local Apollo, XmlDoc = Apollo, XmlDoc
 local next = next
 
 local core = Apollo.GetAddon("WYBMNRedux")

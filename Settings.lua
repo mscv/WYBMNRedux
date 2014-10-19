@@ -1,4 +1,6 @@
 
+local Apollo, XmlDoc = Apollo, XmlDoc
+
 local core = Apollo.GetAddon("WYBMNRedux")
 local module = core:NewModule("Settings")
 

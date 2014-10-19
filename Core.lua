@@ -5,7 +5,7 @@ TO DO:
 2) decouple target neighbour from current neighbour
 --]]
 
-local VERSION = '1.0.3'
+local VERSION = '1.0.4'
 local FAKE_WYBMN_VERSION = 1.047
 
 local ONLINE_STALE_TIME
@@ -13,8 +13,8 @@ local ONLINE_STALE_TIME_NEW = 30
 local ONLINE_STALE_TIME_LEGACY = 10 -- the original WYBMN ignores users not seen in the past 10s
 
 
-local next, tsort, tremove, floor, max, getTime = next, table.sort, table.remove, math.floor, math.max, os.time
-local ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, HousingLib, String_GetWeaselString = ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, HousingLib, String_GetWeaselString
+local next, tsort, tremove, floor, max, getTime, rawset, strmatch, type = next, table.sort, table.remove, math.floor, math.max, os.time, rawset, string.match, type
+local ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GetCurrentZoneName, HousingLib, Print, String_GetWeaselString = ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GetCurrentZoneName, HousingLib, Print, String_GetWeaselString
  
 -----------------------------------------------------------------------------------------------
 -- WYBMNRedux Module Definition
@@ -276,7 +276,7 @@ end
 function Addon:UpdateCurrentPlot()
 	local ownerName
 	if HousingLib:IsHousingWorld() and not HousingLib:IsWarplotResidence() then
-		ownerName = HousingLib:IsOnMyResidence() and playerName or string.match(GetCurrentZoneName() or 'UNKNOWN', "%[([^%]]+)%]")
+		ownerName = HousingLib:IsOnMyResidence() and playerName or strmatch(GetCurrentZoneName() or 'UNKNOWN', "%[([^%]]+)%]")
 		if not ownerName then
 			self:ScheduleTimer('OnChangeWorld', 0.5)
 			return
@@ -496,7 +496,7 @@ function Addon:GetOnlineUsersFiltered()
 	local staleTimeLegacy = getTime() - ONLINE_STALE_TIME_LEGACY
 
 	for k,v in next, tOnlineUsers do
-		if v.lastSeen < (v.legacy and staleTimeLegacy or staleTimeNew)  then
+		if v.lastSeen < (v.legacy and staleTimeLegacy or staleTimeNew) or tNeighboursKeys[k]  then -- purge old data & people we have just added to neighbours
 			tOnlineUsers[k] = nil
 		elseif floor(v.nodeType / 10) == filterNodeType and v.nodeType%10 >= filterNodeLevel and v.shareRatio >= filterShareRatio then
 			tFiltered[k] = v

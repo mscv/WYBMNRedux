@@ -12,12 +12,6 @@ function module:OnInitialize()
 
 	tNodeType2Name = core.tNodeType2Name
 	tShares = core.tShares
-	
---[[  
-	core.db.RegisterCallback(self, "OnProfileChanged", 'DbProfileUpdate')
-	core.db.RegisterCallback(self, "OnProfileCopied", 'DbProfileUpdate')
-	core.db.RegisterCallback(self, "OnProfileReset", 'DbProfileUpdate')
---]]	
 end
 
 function module:OnEnable()
@@ -32,13 +26,7 @@ function module:OnEnable()
 	wndNodeType:SetRadioSel('NodeType', core.db.char.filterNodeType)
 	wndNodeLevel:SetRadioSel('NodeLevel', core.db.char.filterNodeLevel)
 	wndShareRatio:SetRadioSel('ShareRatio', core.db.char.filterShareRatio + 1)
-
-	self:DbProfileUpdate()
 end
-
-function module:DbProfileUpdate()
-end
-
 
 function module:Toggle()
 	local bVisible = wndSearch:IsShown()
@@ -50,12 +38,13 @@ end
 
 function module:GridRefresh()
 	wndGrid:DeleteAll()
-	--XXX fix sorting on refresh: GetSortColumn, IsSortAscending
+
 	for k,v in next, core:GetOnlineUsersFiltered() do
 		local newRow = wndGrid:AddRow(k) -- terribly dumb, adding a row only sets 1st column text ...
 		wndGrid:SetCellText(newRow, 2, tShares[v.shareRatio])
 		wndGrid:SetCellText(newRow, 3, tNodeType2Name[v.nodeType])
 	end
+	wndGrid:SetSortColumn(1, true)
 end
 
 function module:OnRadioNodeType()

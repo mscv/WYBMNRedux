@@ -1,8 +1,6 @@
 --[[
-
 TO DO:
 1) convert tNeighbours into a circular DLL
-2) decouple target neighbour from current neighbour
 --]]
 
 local VERSION = '1.0.4'
@@ -109,6 +107,7 @@ function Addon:OnInitialize()
 			filterNodeType		= 1,
 			filterNodeLevel		= 1,
 			filterShareRatio	= 0,
+			targetNeighbour		= 1,
 		},
 		profile = {
 			bAddonComms			= true,
@@ -146,8 +145,6 @@ function Addon:OnEnable()
 	wndMain:FindChild('headerInfo'):SetText('WYBMN Redux v'..VERSION)
 	wndMain:Show(false, true)
 
-	self.currentNeighbour = 0
-	
 	tNeighbourInfos = db.char.tNeighbourInfos
 	
 	self.myData = db.char.myData
@@ -258,15 +255,20 @@ function Addon:RefreshNeighbourList()
 	while tremove(tNeighbours) do end
 	while tremove(tNeighboursKeys) do end
 	
+	local iRoomMates = 0
 	for k, v in next, tNList do
 		if not v.strCharacterName then 	-- on player login HousingLib takes a while to fully load and work properly - i.e. it returns the list of neighbours w/o providing their names ...
 			return false
 		end
-
+		if v.ePermissionNeighbor == 2 then
+			iRoomMates = iRoomMates + 1
+		end
 		local plotInfo = tNeighbourInfos[v.strCharacterName] or {}
 		tNeighbours[k] = { name = v.strCharacterName, id = v.nId, lastOnline = v.fLastOnline, shareRatio = plotInfo.shareRatio, nodeType = plotInfo.nodeType  }
 	end
 	tNeighbours[0] = { name = self.myData.name, id = 0, lastOnline = 0 , shareRatio = self.myData.shareRatio, nodeType = self.myData.nodeType } -- add self
+	
+	self.myData.bFull = #tNeighbours - iRoomMates >= 100
 	
     self:UpdateTargetPlot()
 	
@@ -281,10 +283,9 @@ function Addon:UpdateCurrentPlot()
 			self:ScheduleTimer('OnChangeWorld', 0.5)
 			return
 		end
-		self.currentNeighbour = tNeighboursKeys[ownerName] or self.currentNeighbour
 	end
 	
-	local tOwnerData = tNeighbours[self.currentNeighbour] or { name = ownerName }
+	local tOwnerData = tNeighbours[tNeighboursKeys[ownerName]] or { name = ownerName }
 	
 	wndCurrentPlot:FindChild("plotName"):SetText(tOwnerData.name or 'Unknown')
 	wndCurrentPlot:FindChild("plotRatio"):SetText(tShares[tOwnerData.shareRatio] or 'Unknown')
@@ -294,7 +295,7 @@ function Addon:UpdateCurrentPlot()
 end
 
 function Addon:UpdateTargetPlot()
-	local tOwnerData = tNeighbours[self:NeighbourNext()] or {}
+	local tOwnerData = tNeighbours[db.char.targetNeighbour] or {}
 	
 	wndTargetPlot:FindChild("plotName"):SetText(tOwnerData.name or 'Unknown')
 	wndTargetPlot:FindChild("plotRatio"):SetText(tShares[tOwnerData.shareRatio] or 'Unknown')
@@ -302,7 +303,7 @@ function Addon:UpdateTargetPlot()
 	wndTargetPlot:FindChild("plotLastOnline"):SetText(helperFDaysToTime(tOwnerData.lastOnline) or 'Unknown')
 	wndTargetPlot:FindChild("plotName"):SetTextColor(tOwnerData.lastOnline == 0 and colorOnline or colorOffline)
 	
-	wndCounter:SetText(self:NeighbourNext() .. '/' .. #tNeighbours)
+	wndCounter:SetText(db.char.targetNeighbour .. '/' .. #tNeighbours)
 end
 
 function Addon:OnChangeWorld()
@@ -349,11 +350,11 @@ function Addon:BroadcastOwnData()
 end
 
 function Addon:NeighbourNext()
-	return self.currentNeighbour == #tNeighbours and 0 or self.currentNeighbour + 1
+	return db.char.targetNeighbour == #tNeighbours and 0 or db.char.targetNeighbour + 1
 end
 
 function Addon:NeighbourPrev()
-	return self.currentNeighbour == 0 and #tNeighbours or self.currentNeighbour - 1
+	return db.char.targetNeighbour == 0 and #tNeighbours or db.char.targetNeighbour - 1
 end
 
 function Addon:OnMessageOnlineInfo(_, tMsg)
@@ -370,14 +371,13 @@ function Addon:OnMessageOnlineInfo(_, tMsg)
 	
 	if not tMsg.name or not tMsg.nodeType or not tMsg.shareRatio or not tMsg.faction or tMsg.faction ~= self.myData.faction then return end
 	
-	tMsg.lastSeen = getTime()
-	
 	local nId = tNeighboursKeys[tMsg.name]
 	if nId then
 		tNeighbours[nId].shareRatio = tMsg.shareRatio
 		tNeighbours[nId].nodeType	= tMsg.nodeType
 		tNeighbourInfos[tMsg.name]	= tMsg
-	else
+	elseif not tMsg.bFull then
+		tMsg.lastSeen = getTime()
 		tOnlineUsers[tMsg.name] = tMsg
 	end
 end
@@ -431,14 +431,12 @@ do
 		
 		if tPlotInfos[tMsg.name] and tPlotInfos[tMsg.name].timeStamp >= tMsg.timestamp then return end -- old data received
 
-		-- update tPlotInfos to supplement online messages
 		local plotInfo = {
 			timeStamp	= tMsg.timestamp,
 			shareRatio	= tMsg.share,
 			nodeType	= tNodeName2Type[tMsg.nodetype],
 			faction		= tMsg.faction,
 		}
-		tPlotInfos[tMsg.name] = plotInfo
 		
 		-- update tNeighbours and tNeighbourInfos, doing this here as well to make use of "replay" messages (i.e. plot information not comming from the owner)
 		local nId = tNeighboursKeys[tMsg.name]
@@ -446,6 +444,8 @@ do
 			tNeighbours[nId].shareRatio = plotInfo.shareRatio
 			tNeighbours[nId].nodeType	= plotInfo.nodeType
 			tNeighbourInfos[tMsg.name]	= plotInfo
+		else
+			tPlotInfos[tMsg.name] = plotInfo -- update tPlotInfos to supplement online messages, not doing it for neighbours, as there isn't really a point
 		end
 	end
 end
@@ -535,20 +535,21 @@ end
 function Addon:OnButtonVisit()
     if not HousingLib.IsHousingWorld() then return end
 	
-	if self:NeighbourNext() == 0 then
+	if db.char.targetNeighbour == 0 then
 		HousingLib.RequestTakeMeHome()
 	else
-		HousingLib.VisitNeighborResidence( tNeighbours[self:NeighbourNext()].id )
+		HousingLib.VisitNeighborResidence( tNeighbours[db.char.targetNeighbour].id )
 	end
+	db.char.targetNeighbour = self:NeighbourNext()
 end
 
 function Addon:OnButtonPrev()
-	self.currentNeighbour = self:NeighbourPrev()
+	db.char.targetNeighbour = self:NeighbourPrev()
 	self:UpdateTargetPlot()
 end
 
 function Addon:OnButtonNext()
-	self.currentNeighbour = self:NeighbourNext()
+	db.char.targetNeighbour = self:NeighbourNext()
 	self:UpdateTargetPlot()
 end
 
@@ -561,7 +562,7 @@ function Addon:OnButtonHome()
 end
 
 function Addon:OnButtonDelete()
-	self:NeighbourRemove( self:NeighbourNext() )
+	self:NeighbourRemove( db.char.targetNeighbour )
 	self:UpdateTargetPlot()
 end
 

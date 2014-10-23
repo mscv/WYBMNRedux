@@ -12,7 +12,7 @@ local ONLINE_STALE_TIME_LEGACY = 10 -- the original WYBMN ignores users not seen
 
 
 local next, tsort, tremove, floor, max, getTime, rawset, strmatch, type = next, table.sort, table.remove, math.floor, math.max, os.time, rawset, string.match, type
-local ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GetCurrentZoneName, HousingLib, Print, String_GetWeaselString = ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GetCurrentZoneName, HousingLib, Print, String_GetWeaselString
+local ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GuildLib, GetCurrentZoneName, HousingLib, Print, String_GetWeaselString = ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GuildLib, GetCurrentZoneName, HousingLib, Print, String_GetWeaselString
  
 -----------------------------------------------------------------------------------------------
 -- WYBMNRedux Module Definition
@@ -69,7 +69,7 @@ local tPlugItem2NodeType = {
 	[123] = 34,
 }
 
-local bAddonComms, bLegacySupport, bAutoToggle, bAutoAccept, bAutoDecline
+local bAddonComms, bLegacySupport, bAutoToggle, bAutoAccept, bAutoDecline, bNoDeclineGuild
 
 local wndMain, wndCurrentPlot, wndTargetPlot, wndCounter
 
@@ -88,7 +88,7 @@ local tNeighbours = setmetatable({}, {__newindex =
 
 local tOnlineUsers = {}
 local tNeighbourInfos = {}
-
+local tGuildMembers = {}
 local tPlotInfos = {}
  
 -----------------------------------------------------------------------------------------------
@@ -115,6 +115,7 @@ function Addon:OnInitialize()
 			bAutoToggle			= true,
 			bAutoAccept			= false,
 			bAutoDecline		= false,
+			bNoDeclineGuild		= false,
 		},
 	}
 
@@ -205,6 +206,7 @@ function Addon:DbProfileUpdate()
 	bAutoToggle		= db.profile.bAutoToggle
 	bAutoAccept		= db.profile.bAutoAccept
 	bAutoDecline	= db.profile.bAutoDecline
+	bNoDeclineGuild	= db.profile.bNoDeclineGuild
 end
 
 local function removeNeighborListEventHandler()
@@ -221,10 +223,19 @@ function Addon:DelayedEnable()
 	end
 	
 	Apollo.RegisterEventHandler("ChangeWorld", "OnChangeWorld", self)
+	
 	Apollo.RegisterEventHandler("HousingNeighborsLoaded", "RefreshNeighbourList", self)
 	Apollo.RegisterEventHandler('HousingNeighborInviteAccepted', 'OnHousingNeighborInviteAccepted', self)
 	Apollo.RegisterEventHandler('HousingNeighborInviteDeclined', 'OnHousingNeighborInviteDeclined', self)
+	
+	Apollo.RegisterEventHandler("GuildRoster", 	"OnGuildRoster", self)
+	Apollo.RegisterEventHandler("GuildResult", "OnGuildResult", self)
+	
 	Apollo.RegisterEventHandler("HousingNeighborInviteRecieved", 	"OnNeighborInviteReceived", self)
+	
+	for _, v in next, GuildLib.GetGuilds() do
+		v:RequestMembers()
+	end
 	
 	-- let's just hope NeighborList's OnDocumentReady fires by then ...
 	self:ScheduleTimer(removeNeighborListEventHandler, 5)
@@ -507,7 +518,7 @@ function Addon:GetOnlineUsersFiltered()
 end
 
 function Addon:OnNeighborInviteReceived(strName)
-	if bAutoDecline then
+	if bAutoDecline and ( not bNoDeclineGuild or not tGuildMembers[strName] ) then
 		local tOnlineUsersFiltered = self:GetOnlineUsersFiltered()
 		if not tOnlineUsersFiltered[strName] then
 			HousingLib.NeighborInviteDecline()
@@ -522,6 +533,22 @@ function Addon:OnNeighborInviteReceived(strName)
 	end
 
 	Apollo.GetAddon("NeighborList"):OnNeighborInviteRecieved(strName)
+end
+
+function Addon:OnGuildRoster(_, tRoster )
+	for _, v in next, tRoster do
+		tGuildMembers[v.strName] = true
+	end
+end
+
+function Addon:OnGuildResult(_, strName, _, eResult )
+	if eResult == GuildLib.GuildResult_KickedMember or eResult == GuildLib.GuildResult_MemberQuit then
+		tGuildMembers[strName] = nil
+	end
+	
+	if eResult == GuildLib.GuildResult_InviteAccepted then
+		tGuildMembers[strName] = true
+	end
 end
 
 -----------------------------------------------------------------------------------------------

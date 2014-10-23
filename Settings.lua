@@ -12,6 +12,7 @@ local function dbProfileUpdate()
 	wndSettings:FindChild("btnLegacySupport"):SetCheck(core.db.profile.bLegacySupport)
 	wndSettings:FindChild("btnAutoAccept"):SetCheck(core.db.profile.bAutoAccept)
 	wndSettings:FindChild("btnAutoDecline"):SetCheck(core.db.profile.bAutoDecline)
+	wndSettings:FindChild("btnNoDeclineGuild"):SetCheck(core.db.profile.bNoDeclineGuild)
 end
 
 function module:OnInitialize()
@@ -55,6 +56,11 @@ end
 
 function module:OnBtnAutoDecline(wndHandler, wndControl)
 	core.db.profile.bAutoDecline = wndControl:IsChecked()
+	core:DbProfileUpdate() -- needed to refresh upvalues from db.profile in core
+end
+
+function module:OnBtnNoDeclineGuild(wndHandler, wndControl)
+	core.db.profile.bNoDeclineGuild = wndControl:IsChecked()
 	core:DbProfileUpdate() -- needed to refresh upvalues from db.profile in core
 end
 

@@ -274,8 +274,10 @@ function Addon:RefreshNeighbourList()
 		if v.ePermissionNeighbor == 2 then
 			iRoomMates = iRoomMates + 1
 		end
-		local plotInfo = tNeighbourInfos[v.strCharacterName] or {}
-		tNeighbours[k] = { name = v.strCharacterName, id = v.nId, lastOnline = v.fLastOnline, shareRatio = plotInfo.shareRatio, nodeType = plotInfo.nodeType  }
+		if v.nId then
+			local plotInfo = tNeighbourInfos[v.strCharacterName] or {}
+			tNeighbours[k] = { name = v.strCharacterName, id = v.nId, lastOnline = v.fLastOnline, shareRatio = plotInfo.shareRatio, nodeType = plotInfo.nodeType  }
+		end
 	end
 	tNeighbours[0] = { name = self.myData.name, id = 0, lastOnline = 0 , shareRatio = self.myData.shareRatio, nodeType = self.myData.nodeType } -- add self
 	
@@ -349,7 +351,6 @@ function Addon:UpdateOwnData()
 	end
 	
 	tNeighbours[0] = { name = self.myData.name, id = 0, lastOnline = 0 , shareRatio = self.myData.shareRatio, nodeType = self.myData.nodeType } -- update self
-
 end
 
 function Addon:BroadcastOwnData()
@@ -361,7 +362,7 @@ function Addon:BroadcastOwnData()
 end
 
 function Addon:NeighbourNext()
-	return db.char.targetNeighbour == #tNeighbours and 0 or db.char.targetNeighbour + 1
+	return db.char.targetNeighbour >= #tNeighbours and 0 or db.char.targetNeighbour + 1
 end
 
 function Addon:NeighbourPrev()

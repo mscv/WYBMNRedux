@@ -1,5 +1,5 @@
 
-local Apollo, XmlDoc = Apollo, XmlDoc
+local Apollo, XmlDoc, HousingLib, Print = Apollo, XmlDoc, HousingLib, Print
 
 local core = Apollo.GetAddon("WYBMNRedux")
 local module = core:NewModule("Settings")

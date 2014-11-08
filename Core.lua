@@ -12,7 +12,7 @@ local ONLINE_STALE_TIME_LEGACY = 10 -- the original WYBMN ignores users not seen
 
 
 local next, tsort, tremove, floor, max, getTime, rawset, strmatch, type = next, table.sort, table.remove, math.floor, math.max, os.time, rawset, string.match, type
-local ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GuildLib, GetCurrentZoneName, HousingLib, Print, String_GetWeaselString = ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GuildLib, GetCurrentZoneName, HousingLib, Print, String_GetWeaselString
+local ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GuildLib, GetCurrentZoneName, HousingLib, Print = ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GuildLib, GetCurrentZoneName, HousingLib, Print
  
 -----------------------------------------------------------------------------------------------
 -- WYBMNRedux Module Definition
@@ -175,31 +175,6 @@ end
 -- Functions
 -----------------------------------------------------------------------------------------------
 
-local function helperFDaysToTime(nDays)
-	if nDays == nil then return	end
-	if nDays == 0 then return Apollo.GetString("Neighbors_Online") end
-
-	local tTimeInfo = {["name"] = "", ["count"] = nil}
-	if nDays >= 30 then -- Months
-		tTimeInfo.name = Apollo.GetString("CRB_Month")
-		tTimeInfo.count = floor(nDays / 30)
-	elseif nDays >= 1 then -- Days
-		tTimeInfo.name = Apollo.GetString("CRB_Day")
-		tTimeInfo.count = floor(nDays)
-	else
-		local nHours = nDays * 24
-		if nHours >= 1 then -- Hours
-			tTimeInfo.name = Apollo.GetString("CRB_Hour")
-			tTimeInfo.count = floor(nHours)
-		else -- Minutes
-			tTimeInfo.name = Apollo.GetString("CRB_Min")
-			tTimeInfo.count = max(floor(nHours%1*60),1)
-		end
-	end
-
-	return String_GetWeaselString(Apollo.GetString("CRB_TimeOffline"), tTimeInfo)
-end
-
 function Addon:DbProfileUpdate()
 	bAddonComms		= db.profile.bAddonComms
 	bLegacySupport	= db.profile.bLegacySupport
@@ -227,6 +202,8 @@ function Addon:DelayedEnable()
 	Apollo.RegisterEventHandler("HousingNeighborsLoaded", "RefreshNeighbourList", self)
 	Apollo.RegisterEventHandler('HousingNeighborInviteAccepted', 'OnHousingNeighborInviteAccepted', self)
 	Apollo.RegisterEventHandler('HousingNeighborInviteDeclined', 'OnHousingNeighborInviteDeclined', self)
+
+	Apollo.RegisterEventHandler("WindowManagementReady"      , "OnWindowManagementReady"      , self)
 	
 	Apollo.RegisterEventHandler("GuildRoster", 	"OnGuildRoster", self)
 	Apollo.RegisterEventHandler("GuildResult", "OnGuildResult", self)
@@ -243,6 +220,12 @@ function Addon:DelayedEnable()
 	self:OnChangeWorld()
 end
 
+do
+	local Event_FireGenericEvent = Event_FireGenericEvent
+	function Addon:OnWindowManagementReady()
+		Event_FireGenericEvent("WindowManagementAdd", { wnd = wndMain, strName = "WYBMNRedux Main Window" })
+	end
+end
 -- on SlashCommand "/wybmnr"
 function Addon:OnSlashCmd()
 	wndMain:Invoke() -- show the window
@@ -288,35 +271,63 @@ function Addon:RefreshNeighbourList()
 	return true
 end
 
-function Addon:UpdateCurrentPlot()
-	local ownerName
-	if HousingLib:IsHousingWorld() and not HousingLib:IsWarplotResidence() then
-		ownerName = HousingLib:IsOnMyResidence() and playerName or strmatch(GetCurrentZoneName() or 'UNKNOWN', "%[([^%]]+)%]")
-		if not ownerName then
-			self:ScheduleTimer('OnChangeWorld', 0.5)
-			return
-		end
-	end
-	
-	local tOwnerData = tNeighbours[tNeighboursKeys[ownerName]] or { name = ownerName }
-	
-	wndCurrentPlot:FindChild("plotName"):SetText(tOwnerData.name or 'Unknown')
-	wndCurrentPlot:FindChild("plotRatio"):SetText(tShares[tOwnerData.shareRatio] or 'Unknown')
-	wndCurrentPlot:FindChild("plotType"):SetText(tNodeType2Name[tOwnerData.nodeType] or 'Unknown')
-	wndCurrentPlot:FindChild("plotLastOnline"):SetText(helperFDaysToTime(tOwnerData.lastOnline) or 'Unknown')
-	wndCurrentPlot:FindChild("plotName"):SetTextColor(tOwnerData.lastOnline == 0 and colorOnline or colorOffline)
-end
+do
+	local String_GetWeaselString = String_GetWeaselString
+	local function helperFDaysToTime(nDays)
+		if nDays == nil then return	end
+		if nDays == 0 then return Apollo.GetString("Neighbors_Online") end
 
-function Addon:UpdateTargetPlot()
-	local tOwnerData = tNeighbours[db.char.targetNeighbour] or {}
-	
-	wndTargetPlot:FindChild("plotName"):SetText(tOwnerData.name or 'Unknown')
-	wndTargetPlot:FindChild("plotRatio"):SetText(tShares[tOwnerData.shareRatio] or 'Unknown')
-	wndTargetPlot:FindChild("plotType"):SetText(tNodeType2Name[tOwnerData.nodeType] or 'Unknown')
-	wndTargetPlot:FindChild("plotLastOnline"):SetText(helperFDaysToTime(tOwnerData.lastOnline) or 'Unknown')
-	wndTargetPlot:FindChild("plotName"):SetTextColor(tOwnerData.lastOnline == 0 and colorOnline or colorOffline)
-	
-	wndCounter:SetText(db.char.targetNeighbour .. '/' .. #tNeighbours)
+		local tTimeInfo = {["name"] = "", ["count"] = nil}
+		if nDays >= 30 then -- Months
+			tTimeInfo.name = Apollo.GetString("CRB_Month")
+			tTimeInfo.count = floor(nDays / 30)
+		elseif nDays >= 1 then -- Days
+			tTimeInfo.name = Apollo.GetString("CRB_Day")
+			tTimeInfo.count = floor(nDays)
+		else
+			local nHours = nDays * 24
+			if nHours >= 1 then -- Hours
+				tTimeInfo.name = Apollo.GetString("CRB_Hour")
+				tTimeInfo.count = floor(nHours)
+			else -- Minutes
+				tTimeInfo.name = Apollo.GetString("CRB_Min")
+				tTimeInfo.count = max(floor(nHours%1*60),1)
+			end
+		end
+
+		return String_GetWeaselString(Apollo.GetString("CRB_TimeOffline"), tTimeInfo)
+	end
+
+	function Addon:UpdateCurrentPlot()
+		local ownerName
+		if HousingLib:IsHousingWorld() and not HousingLib:IsWarplotResidence() then
+			ownerName = HousingLib:IsOnMyResidence() and playerName or strmatch(GetCurrentZoneName() or 'UNKNOWN', "%[([^%]]+)%]")
+			if not ownerName then
+				self:ScheduleTimer('OnChangeWorld', 0.5)
+				return
+			end
+		end
+		
+		local tOwnerData = tNeighbours[tNeighboursKeys[ownerName]] or { name = ownerName }
+		
+		wndCurrentPlot:FindChild("plotName"):SetText(tOwnerData.name or 'Unknown')
+		wndCurrentPlot:FindChild("plotRatio"):SetText(tShares[tOwnerData.shareRatio] or 'Unknown')
+		wndCurrentPlot:FindChild("plotType"):SetText(tNodeType2Name[tOwnerData.nodeType] or 'Unknown')
+		wndCurrentPlot:FindChild("plotLastOnline"):SetText(helperFDaysToTime(tOwnerData.lastOnline) or 'Unknown')
+		wndCurrentPlot:FindChild("plotName"):SetTextColor(tOwnerData.lastOnline == 0 and colorOnline or colorOffline)
+	end
+
+	function Addon:UpdateTargetPlot()
+		local tOwnerData = tNeighbours[db.char.targetNeighbour] or {}
+		
+		wndTargetPlot:FindChild("plotName"):SetText(tOwnerData.name or 'Unknown')
+		wndTargetPlot:FindChild("plotRatio"):SetText(tShares[tOwnerData.shareRatio] or 'Unknown')
+		wndTargetPlot:FindChild("plotType"):SetText(tNodeType2Name[tOwnerData.nodeType] or 'Unknown')
+		wndTargetPlot:FindChild("plotLastOnline"):SetText(helperFDaysToTime(tOwnerData.lastOnline) or 'Unknown')
+		wndTargetPlot:FindChild("plotName"):SetTextColor(tOwnerData.lastOnline == 0 and colorOnline or colorOffline)
+		
+		wndCounter:SetText(db.char.targetNeighbour .. '/' .. #tNeighbours)
+	end
 end
 
 function Addon:OnChangeWorld()

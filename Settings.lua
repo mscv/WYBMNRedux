@@ -68,6 +68,34 @@ function module:OnBtnReset(wndHandler, wndControl)
 	core.db:ResetProfile()
 end
 
+
+do
+	local function crbSettingsCancel( self, wndHandler, wndControl, eMouseButton )
+		if wndHandler:GetId() ~= wndControl:GetId() then
+			return
+		end
+		self.wndPropertySettingsPopup:Show(false)
+		
+		if HousingLib:IsHousingWorld() and HousingLib:IsOnMyResidence() and not HousingLib:IsWarplotResidence() then
+			core:UpdateOwnData()
+			core:UpdateCurrentPlot()
+		end
+	end
+	function module:OnBtnSetShareRatio(wndHandler, wndControl)
+		if wndHandler ~= wndControl then
+			return
+		end
+
+		if not ( HousingLib:IsHousingWorld() and HousingLib:IsOnMyResidence() and not HousingLib:IsWarplotResidence() ) then
+			Print('WYBMNRedux: You need to be on Your housing plot to do that.')
+			return
+		end
+
+		local crbRemodel = Apollo.GetAddon('HousingRemodel')
+		crbRemodel.OnSettingsCancel = crbSettingsCancel
+		crbRemodel:OnPropertySettingsBtn( wndHandler, wndControl)
+	end
+end
 function module:Toggle()
 	wndSettings:Show(not wndSettings:IsShown())
 end

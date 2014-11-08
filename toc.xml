@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Addon Author="mscv" APIVersion="9" Name="WYBMNRedux" Description="">
 <!-- Libs -->
+	<Script Name="Libs/LibApolloFixes/LibApolloFixes-1.0.lua"/>
 	<Script Name="Libs/GeminiTimer/GeminiTimer-1.0.lua"/>
 	<Script Name="Libs/CallbackHandler/CallbackHandler-1.0.lua"/>
 	<Script Name="Libs/GeminiDB/GeminiDB-1.0.lua"/>

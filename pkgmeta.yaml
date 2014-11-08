@@ -5,6 +5,9 @@ externals:
   Libs/CallbackHandler:
     url: https://github.com/wildstarnasa/CallbackHandler.git
     tag: latest
+  Libs/LibApolloFixes:
+    url: https://github.com/wildstarnasa/LibApolloFixes.git
+    tag: latest
   Libs/GeminiTimer:
     url: https://github.com/wildstarnasa/GeminiTimer.git
     tag: latest

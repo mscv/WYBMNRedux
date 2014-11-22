@@ -1,33 +1,55 @@
 
-local Apollo, XmlDoc, HousingLib, Print = Apollo, XmlDoc, HousingLib, Print
+local Apollo, XmlDoc, HousingLib = Apollo, XmlDoc, HousingLib
 
-local core = Apollo.GetAddon("WYBMNRedux")
-local module = core:NewModule("Settings")
+local core = Apollo.GetAddon('WYBMNRedux')
+local module = core:NewModule('Settings')
 
 local wndSettings
+local addonHousingRemodel
 
 local function dbProfileUpdate()
-	wndSettings:FindChild("btnAutoToggle"):SetCheck(core.db.profile.bAutoToggle)
-	wndSettings:FindChild("btnAddonComms"):SetCheck(core.db.profile.bAddonComms)
-	wndSettings:FindChild("btnLegacySupport"):SetCheck(core.db.profile.bLegacySupport)
-	wndSettings:FindChild("btnAutoAccept"):SetCheck(core.db.profile.bAutoAccept)
-	wndSettings:FindChild("btnAutoDecline"):SetCheck(core.db.profile.bAutoDecline)
-	wndSettings:FindChild("btnNoDeclineGuild"):SetCheck(core.db.profile.bNoDeclineGuild)
+	wndSettings:FindChild('btnAutoToggle'):SetCheck(core.db.profile.bAutoToggle)
+	wndSettings:FindChild('btnAddonComms'):SetCheck(core.db.profile.bAddonComms)
+	wndSettings:FindChild('btnLegacySupport'):SetCheck(core.db.profile.bLegacySupport)
+	wndSettings:FindChild('btnAutoAccept'):SetCheck(core.db.profile.bAutoAccept)
+	wndSettings:FindChild('btnAutoDecline'):SetCheck(core.db.profile.bAutoDecline)
+	wndSettings:FindChild('btnNoDeclineGuild'):SetCheck(core.db.profile.bNoDeclineGuild)
 end
 
 function module:OnInitialize()
-	self.xmlDoc = XmlDoc.CreateFromFile("Settings.xml")
+	self.xmlDoc = XmlDoc.CreateFromFile('Settings.xml')
 	
-	core.db.RegisterCallback(self.Name, "OnProfileReset", dbProfileUpdate)
-	core.db.RegisterCallback(self.Name, "OnProfileChanged", dbProfileUpdate)
-	core.db.RegisterCallback(self.Name, "OnProfileCopied", dbProfileUpdate)
+	core.db.RegisterCallback(self.Name, 'OnProfileReset', dbProfileUpdate)
+	core.db.RegisterCallback(self.Name, 'OnProfileChanged', dbProfileUpdate)
+	core.db.RegisterCallback(self.Name, 'OnProfileCopied', dbProfileUpdate)
+	
+	Apollo.RegisterEventHandler('ObscuredAddonVisible', '__OnHousingRemodelVisible', self)
 end
 
 function module:OnEnable()
-	wndSettings = Apollo.LoadForm(self.xmlDoc, "WYBMNReduxSettings", nil, self)
+	wndSettings = Apollo.LoadForm(self.xmlDoc, 'WYBMNReduxSettings', nil, self)
 	wndSettings:Show(false)
 
 	dbProfileUpdate()
+	
+	self:__OnHousingRemodelVisible('HousingRemodel')
+end
+
+function module:__OnHousingRemodelVisible(strAddonName)
+	if strAddonName ~= 'HousingRemodel' then return end
+	
+	addonHousingRemodel = Apollo.GetAddon('HousingRemodel')
+
+	if addonHousingRemodel == nil then return end
+	
+	local fnOldHousingRemodelOnSettingsCancel = addonHousingRemodel.OnSettingsCancel
+	addonHousingRemodel.OnSettingsCancel = function ( self, wndHandler, wndControl, eMouseButton )
+		fnOldHousingRemodelOnSettingsCancel( self, wndHandler, wndControl, eMouseButton )
+		core:UpdateOwnData()
+		core:UpdateCurrentPlot()
+	end
+	self.__OnHousingRemodelVisible = nil
+	Apollo.RemoveEventHandler('ObscuredAddonVisible', self)
 end
 
 -----------------------------------------------------------------------------------------------
@@ -68,34 +90,16 @@ function module:OnBtnReset(wndHandler, wndControl)
 	core.db:ResetProfile()
 end
 
+function module:OnBtnSetShareRatio(wndHandler, wndControl)
+	if wndHandler ~= wndControl or addonHousingRemodel == nil then return end
 
-do
-	local function crbSettingsCancel( self, wndHandler, wndControl, eMouseButton )
-		if wndHandler:GetId() ~= wndControl:GetId() then
-			return
-		end
-		self.wndPropertySettingsPopup:Show(false)
-		
-		if HousingLib:IsHousingWorld() and HousingLib:IsOnMyResidence() and not HousingLib:IsWarplotResidence() then
-			core:UpdateOwnData()
-			core:UpdateCurrentPlot()
-		end
+	if not ( HousingLib:IsHousingWorld() and HousingLib:IsOnMyResidence() and not HousingLib:IsWarplotResidence() ) then
+		core:Print('You need to be on Your housing plot to do that.')
+		return
 	end
-	function module:OnBtnSetShareRatio(wndHandler, wndControl)
-		if wndHandler ~= wndControl then
-			return
-		end
-
-		if not ( HousingLib:IsHousingWorld() and HousingLib:IsOnMyResidence() and not HousingLib:IsWarplotResidence() ) then
-			Print('WYBMNRedux: You need to be on Your housing plot to do that.')
-			return
-		end
-
-		local crbRemodel = Apollo.GetAddon('HousingRemodel')
-		crbRemodel.OnSettingsCancel = crbSettingsCancel
-		crbRemodel:OnPropertySettingsBtn( wndHandler, wndControl)
-	end
+	addonHousingRemodel:OnPropertySettingsBtn( wndHandler, wndControl)
 end
+
 function module:Toggle()
 	wndSettings:Show(not wndSettings:IsShown())
 end

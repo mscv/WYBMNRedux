@@ -3,7 +3,7 @@ TO DO:
 1) convert tNeighbours into a circular DLL
 --]]
 
-local VERSION = '1.0.4'
+local VERSION = '1.0.6'
 local FAKE_WYBMN_VERSION = 1.047
 
 local ONLINE_STALE_TIME
@@ -12,23 +12,23 @@ local ONLINE_STALE_TIME_LEGACY = 10 -- the original WYBMN ignores users not seen
 
 
 local next, tsort, tremove, floor, max, getTime, rawset, strmatch, type = next, table.sort, table.remove, math.floor, math.max, os.time, rawset, string.match, type
-local ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GuildLib, GetCurrentZoneName, HousingLib, Print = ICCommLib, XmlDoc, Apollo, ApolloColor, GameLib, GuildLib, GetCurrentZoneName, HousingLib, Print
+local ICCommLib, XmlDoc, Apollo, GameLib, GuildLib, GetCurrentZoneName, HousingLib = ICCommLib, XmlDoc, Apollo, GameLib, GuildLib, GetCurrentZoneName, HousingLib
  
 -----------------------------------------------------------------------------------------------
 -- WYBMNRedux Module Definition
 -----------------------------------------------------------------------------------------------
-local Addon = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAddon("WYBMNRedux", true, { 'Gemini:DB-1.0', 'Gemini:Timer-1.0', 'Gemini:CallbackHandler-1.0', 'NeighborList' }, 'Gemini:Timer-1.0')
+local Addon = Apollo.GetPackage('Gemini:Addon-1.1').tPackage:NewAddon('WYBMNRedux', true, { 'Gemini:DB-1.0', 'Gemini:Timer-1.0', 'Gemini:CallbackHandler-1.0', 'NeighborList' }, 'Gemini:Timer-1.0')
  
 -----------------------------------------------------------------------------------------------
 -- Vars
 -----------------------------------------------------------------------------------------------
 
 local tShares = {
-	[0] = "100% to Owner",
-	[1] = "75% to Owner",
-	[2] = "50% to Owner",
-	[3] = "25% to Owner",
-	[4] = "0% to Owner"
+	[0] = '100% to Owner',
+	[1] = '75% to Owner',
+	[2] = '50% to Owner',
+	[3] = '25% to Owner',
+	[4] = '0% to Owner'
 }
 
 local playerName = GameLib.GetAccountRealmCharacter().strCharacter
@@ -73,8 +73,8 @@ local bAddonComms, bLegacySupport, bAutoToggle, bAutoAccept, bAutoDecline, bNoDe
 
 local wndMain, wndCurrentPlot, wndTargetPlot, wndCounter
 
-local colorOnline = ApolloColor.new("UI_TextHoloBodyHighlight")
-local colorOffline = ApolloColor.new("UI_BtnTextGrayNormal")
+local colorOnline = 'UI_TextHoloBodyHighlight'
+local colorOffline = 'UI_BtnTextGrayNormal'
 
 local db
 
@@ -96,8 +96,8 @@ local tPlotInfos = {}
 -----------------------------------------------------------------------------------------------
 
 function Addon:OnInitialize()
-	Apollo.RegisterSlashCommand("wybmnr", "OnSlashCmd", self)
-	Apollo.RegisterSlashCommand("wybmnrvisit", "OnButtonVisit", self)
+	Apollo.RegisterSlashCommand('wybmnr', 'OnSlashCmd', self)
+	Apollo.RegisterSlashCommand('wybmnrvisit', 'OnButtonVisit', self)
 	
 	local defaults = {
 		char = {
@@ -111,7 +111,7 @@ function Addon:OnInitialize()
 		},
 		profile = {
 			bAddonComms			= true,
-			bLegacySupport		= true,
+			bLegacySupport		= false,
 			bAutoToggle			= true,
 			bAutoAccept			= false,
 			bAutoDecline		= false,
@@ -119,11 +119,11 @@ function Addon:OnInitialize()
 		},
 	}
 
-	db = Apollo.GetPackage("Gemini:DB-1.0").tPackage:New(self, defaults, true)
+	db = Apollo.GetPackage('Gemini:DB-1.0').tPackage:New(self, defaults, true)
 
-	db.RegisterCallback(self, "OnProfileChanged", 'DbProfileUpdate')
-	db.RegisterCallback(self, "OnProfileCopied", 'DbProfileUpdate')
-	db.RegisterCallback(self, "OnProfileReset", 'DbProfileUpdate')
+	db.RegisterCallback(self, 'OnProfileChanged', 'DbProfileUpdate')
+	db.RegisterCallback(self, 'OnProfileCopied', 'DbProfileUpdate')
+	db.RegisterCallback(self, 'OnProfileReset', 'DbProfileUpdate')
 	
 	self.db = db
 	-- needed for the search module
@@ -133,9 +133,9 @@ function Addon:OnInitialize()
 end
 
 function Addon:OnEnable()
-	self.xmlDoc = XmlDoc.CreateFromFile("Core.xml")
+	self.xmlDoc = XmlDoc.CreateFromFile('Core.xml')
 	
-	wndMain = Apollo.LoadForm(self.xmlDoc, "WYBMNReduxMain", nil, self)
+	wndMain = Apollo.LoadForm(self.xmlDoc, 'WYBMNReduxMain', nil, self)
 	wndCurrentPlot = wndMain:FindChild('plotInfo:currentPlot')
 	wndTargetPlot = wndMain:FindChild('plotInfo:targetPlot')
 	
@@ -143,7 +143,7 @@ function Addon:OnEnable()
 	
 	self.xmlDoc = nil
 	
-	wndMain:FindChild('headerInfo'):SetText('WYBMN Redux v'..VERSION)
+	wndMain:FindChild('headerInfo'):SetText('WYBMNRedux v'..VERSION)
 	wndMain:Show(false, true)
 
 	tNeighbourInfos = db.char.tNeighbourInfos
@@ -161,9 +161,9 @@ function Addon:OnEnable()
 
 	if bAddonComms then
 		if bLegacySupport then -- listen to legacy plot info messages
-			self.channelPlotInfos = ICCommLib.JoinChannel("WillYouBeMyNeighborChannel", "OnMessagePlotInfo", self)
+			self.channelPlotInfos = ICCommLib.JoinChannel('WillYouBeMyNeighborChannel', 'OnMessagePlotInfo', self)
 		end
-		self.channelOnlineInfo = ICCommLib.JoinChannel("WillYouBeMyNeighborOnlineChannel", "OnMessageOnlineInfo", self) -- we need this chan to listen at least to neighbours sending updates about their plots
+		self.channelOnlineInfo = ICCommLib.JoinChannel('WillYouBeMyNeighborOnlineChannel', 'OnMessageOnlineInfo', self) -- we need this chan to listen at least to neighbours sending updates about their plots
 		self:ScheduleRepeatingTimer('BroadcastOwnData', ONLINE_STALE_TIME)
 	end
 
@@ -185,7 +185,7 @@ function Addon:DbProfileUpdate()
 end
 
 local function removeNeighborListEventHandler()
-	Apollo.RemoveEventHandler("HousingNeighborInviteRecieved", Apollo.GetAddon("NeighborList"))
+	Apollo.RemoveEventHandler('HousingNeighborInviteRecieved', Apollo.GetAddon('NeighborList'))
 end
 
 function Addon:DelayedEnable()
@@ -197,18 +197,18 @@ function Addon:DelayedEnable()
 		return
 	end
 	
-	Apollo.RegisterEventHandler("ChangeWorld", "OnChangeWorld", self)
+	Apollo.RegisterEventHandler('ChangeWorld', 'OnChangeWorld', self)
 	
-	Apollo.RegisterEventHandler("HousingNeighborsLoaded", "RefreshNeighbourList", self)
+	Apollo.RegisterEventHandler('HousingNeighborsLoaded', 'RefreshNeighbourList', self)
 	Apollo.RegisterEventHandler('HousingNeighborInviteAccepted', 'OnHousingNeighborInviteAccepted', self)
 	Apollo.RegisterEventHandler('HousingNeighborInviteDeclined', 'OnHousingNeighborInviteDeclined', self)
 
-	Apollo.RegisterEventHandler("WindowManagementReady"      , "OnWindowManagementReady"      , self)
+	Apollo.RegisterEventHandler('WindowManagementReady'      , 'OnWindowManagementReady'      , self)
 	
-	Apollo.RegisterEventHandler("GuildRoster", 	"OnGuildRoster", self)
-	Apollo.RegisterEventHandler("GuildResult", "OnGuildResult", self)
+	Apollo.RegisterEventHandler('GuildRoster', 	'OnGuildRoster', self)
+	Apollo.RegisterEventHandler('GuildResult', 'OnGuildResult', self)
 	
-	Apollo.RegisterEventHandler("HousingNeighborInviteRecieved", 	"OnNeighborInviteReceived", self)
+	Apollo.RegisterEventHandler('HousingNeighborInviteRecieved', 	'OnNeighborInviteReceived', self)
 	
 	for _, v in next, GuildLib.GetGuilds() do
 		v:RequestMembers()
@@ -223,10 +223,11 @@ end
 do
 	local Event_FireGenericEvent = Event_FireGenericEvent
 	function Addon:OnWindowManagementReady()
-		Event_FireGenericEvent("WindowManagementAdd", { wnd = wndMain, strName = "WYBMNRedux Main Window" })
+		Event_FireGenericEvent('WindowManagementAdd', { wnd = wndMain, strName = 'WYBMNRedux Main Window' })
 	end
 end
--- on SlashCommand "/wybmnr"
+
+-- on SlashCommand '/wybmnr'
 function Addon:OnSlashCmd()
 	wndMain:Invoke() -- show the window
 	
@@ -275,33 +276,33 @@ do
 	local String_GetWeaselString = String_GetWeaselString
 	local function helperFDaysToTime(nDays)
 		if nDays == nil then return	end
-		if nDays == 0 then return Apollo.GetString("Neighbors_Online") end
+		if nDays == 0 then return Apollo.GetString('Neighbors_Online') end
 
-		local tTimeInfo = {["name"] = "", ["count"] = nil}
+		local tTimeInfo = {['name'] = '', ['count'] = nil}
 		if nDays >= 30 then -- Months
-			tTimeInfo.name = Apollo.GetString("CRB_Month")
+			tTimeInfo.name = Apollo.GetString('CRB_Month')
 			tTimeInfo.count = floor(nDays / 30)
 		elseif nDays >= 1 then -- Days
-			tTimeInfo.name = Apollo.GetString("CRB_Day")
+			tTimeInfo.name = Apollo.GetString('CRB_Day')
 			tTimeInfo.count = floor(nDays)
 		else
 			local nHours = nDays * 24
 			if nHours >= 1 then -- Hours
-				tTimeInfo.name = Apollo.GetString("CRB_Hour")
+				tTimeInfo.name = Apollo.GetString('CRB_Hour')
 				tTimeInfo.count = floor(nHours)
 			else -- Minutes
-				tTimeInfo.name = Apollo.GetString("CRB_Min")
+				tTimeInfo.name = Apollo.GetString('CRB_Min')
 				tTimeInfo.count = max(floor(nHours%1*60),1)
 			end
 		end
 
-		return String_GetWeaselString(Apollo.GetString("CRB_TimeOffline"), tTimeInfo)
+		return String_GetWeaselString(Apollo.GetString('CRB_TimeOffline'), tTimeInfo)
 	end
 
 	function Addon:UpdateCurrentPlot()
 		local ownerName
-		if HousingLib:IsHousingWorld() and not HousingLib:IsWarplotResidence() then
-			ownerName = HousingLib:IsOnMyResidence() and playerName or strmatch(GetCurrentZoneName() or 'UNKNOWN', "%[([^%]]+)%]")
+		if HousingLib.IsHousingWorld() and not HousingLib.IsWarplotResidence() then
+			ownerName = HousingLib.IsOnMyResidence() and playerName or strmatch(GetCurrentZoneName() or 'UNKNOWN', '%[([^%]]+)%]')
 			if not ownerName then
 				self:ScheduleTimer('OnChangeWorld', 0.5)
 				return
@@ -310,21 +311,21 @@ do
 		
 		local tOwnerData = tNeighbours[tNeighboursKeys[ownerName]] or { name = ownerName }
 		
-		wndCurrentPlot:FindChild("plotName"):SetText(tOwnerData.name or 'Unknown')
-		wndCurrentPlot:FindChild("plotRatio"):SetText(tShares[tOwnerData.shareRatio] or 'Unknown')
-		wndCurrentPlot:FindChild("plotType"):SetText(tNodeType2Name[tOwnerData.nodeType] or 'Unknown')
-		wndCurrentPlot:FindChild("plotLastOnline"):SetText(helperFDaysToTime(tOwnerData.lastOnline) or 'Unknown')
-		wndCurrentPlot:FindChild("plotName"):SetTextColor(tOwnerData.lastOnline == 0 and colorOnline or colorOffline)
+		wndCurrentPlot:FindChild('plotName'):SetText(tOwnerData.name or 'Unknown')
+		wndCurrentPlot:FindChild('plotRatio'):SetText(tShares[tOwnerData.shareRatio] or 'Unknown')
+		wndCurrentPlot:FindChild('plotType'):SetText(tNodeType2Name[tOwnerData.nodeType] or 'Unknown')
+		wndCurrentPlot:FindChild('plotLastOnline'):SetText(helperFDaysToTime(tOwnerData.lastOnline) or 'Unknown')
+		wndCurrentPlot:FindChild('plotName'):SetTextColor(tOwnerData.lastOnline == 0 and colorOnline or colorOffline)
 	end
 
 	function Addon:UpdateTargetPlot()
 		local tOwnerData = tNeighbours[db.char.targetNeighbour] or {}
 		
-		wndTargetPlot:FindChild("plotName"):SetText(tOwnerData.name or 'Unknown')
-		wndTargetPlot:FindChild("plotRatio"):SetText(tShares[tOwnerData.shareRatio] or 'Unknown')
-		wndTargetPlot:FindChild("plotType"):SetText(tNodeType2Name[tOwnerData.nodeType] or 'Unknown')
-		wndTargetPlot:FindChild("plotLastOnline"):SetText(helperFDaysToTime(tOwnerData.lastOnline) or 'Unknown')
-		wndTargetPlot:FindChild("plotName"):SetTextColor(tOwnerData.lastOnline == 0 and colorOnline or colorOffline)
+		wndTargetPlot:FindChild('plotName'):SetText(tOwnerData.name or 'Unknown')
+		wndTargetPlot:FindChild('plotRatio'):SetText(tShares[tOwnerData.shareRatio] or 'Unknown')
+		wndTargetPlot:FindChild('plotType'):SetText(tNodeType2Name[tOwnerData.nodeType] or 'Unknown')
+		wndTargetPlot:FindChild('plotLastOnline'):SetText(helperFDaysToTime(tOwnerData.lastOnline) or 'Unknown')
+		wndTargetPlot:FindChild('plotName'):SetTextColor(tOwnerData.lastOnline == 0 and colorOnline or colorOffline)
 		
 		wndCounter:SetText(db.char.targetNeighbour .. '/' .. #tNeighbours)
 	end
@@ -332,14 +333,14 @@ end
 
 function Addon:OnChangeWorld()
 	if bAutoToggle then
-		if not HousingLib:IsHousingWorld() then 
+		if not HousingLib.IsHousingWorld() then 
 			if wndMain:IsShown() then wndMain:Close() return end
 		else
 			if not wndMain:IsShown() then wndMain:Invoke() end
 		end
 	end
 	
-	if HousingLib:IsHousingWorld() and HousingLib:IsOnMyResidence() and not HousingLib:IsWarplotResidence() then
+	if HousingLib.IsHousingWorld() and HousingLib.IsOnMyResidence() and not HousingLib.IsWarplotResidence() then
 		self:UpdateOwnData()
 	end
 	
@@ -410,38 +411,38 @@ end
 do
 	local tNodeName2Type = {
 		-- enUS
-		["Mineral Deposit Tier 1"]		= 11,
-		["Mineral Deposit Tier 2"]		= 12,
-		["Mineral Deposit Tier 3"]		= 13,
-		["Mineral Deposit Tier 4"]		= 14,
-		["Elite Mineral Deposit"]		= 15,
-		["Relic Excavation Tier 1"]		= 21,
-		["Relic Excavation Tier 2"]		= 22,
-		["Relic Excavation Tier 3"]		= 23,
-		["Relic Excavation Tier 4"]		= 24,
-		["Elite Relic Excavation"]		= 25,
-		["Thicket Tier 1"]				= 31,
-		["Thicket Tier 2"]				= 32,
-		["Thicket Tier 3"]				= 33,
-		["Thicket Tier 4"]				= 34,
-		["Elite Thicket"]				= 35,
+		['Mineral Deposit Tier 1']		= 11,
+		['Mineral Deposit Tier 2']		= 12,
+		['Mineral Deposit Tier 3']		= 13,
+		['Mineral Deposit Tier 4']		= 14,
+		['Elite Mineral Deposit']		= 15,
+		['Relic Excavation Tier 1']		= 21,
+		['Relic Excavation Tier 2']		= 22,
+		['Relic Excavation Tier 3']		= 23,
+		['Relic Excavation Tier 4']		= 24,
+		['Elite Relic Excavation']		= 25,
+		['Thicket Tier 1']				= 31,
+		['Thicket Tier 2']				= 32,
+		['Thicket Tier 3']				= 33,
+		['Thicket Tier 4']				= 34,
+		['Elite Thicket']				= 35,
 
 		-- deDe
-		["Mineralvorkommen (Rang 1)"]	= 11,
-		["Mineralvorkommen (Rang 2)"]	= 12,
-		["Mineralvorkommen (Rang 3)"]	= 13,
-		["Mineralvorkommen (Rang 4)"]	= 14,
-		["Elite-Mineralvorkommen"]		= 15,
-		["Reliktausgrabung (Rang 1)"]	= 21,
-		["Reliktausgrabung (Rang 2)"]	= 22,
-		["Reliktausgrabung (Rang 3)"]	= 23,
-		["Reliktausgrabung (Rang 4)"]	= 24,
-		["Elite-Reliktausgrabung"]		= 25,
-		["Dickicht (Rang 1)"]			= 31,
-		["Dickicht (Rang 2)"]			= 32,
-		["Dickicht (Rang 3)"]			= 33,
-		["Dickicht (Rang 4)"]			= 34,
-		["Elite-Dickicht"]				= 35,
+		['Mineralvorkommen (Rang 1)']	= 11,
+		['Mineralvorkommen (Rang 2)']	= 12,
+		['Mineralvorkommen (Rang 3)']	= 13,
+		['Mineralvorkommen (Rang 4)']	= 14,
+		['Elite-Mineralvorkommen']		= 15,
+		['Reliktausgrabung (Rang 1)']	= 21,
+		['Reliktausgrabung (Rang 2)']	= 22,
+		['Reliktausgrabung (Rang 3)']	= 23,
+		['Reliktausgrabung (Rang 4)']	= 24,
+		['Elite-Reliktausgrabung']		= 25,
+		['Dickicht (Rang 1)']			= 31,
+		['Dickicht (Rang 2)']			= 32,
+		['Dickicht (Rang 3)']			= 33,
+		['Dickicht (Rang 4)']			= 34,
+		['Elite-Dickicht']				= 35,
 	}
 	function Addon:OnMessagePlotInfo(_, tMsg)
 		if type(tMsg) ~= 'table' then return end
@@ -461,7 +462,7 @@ do
 			faction		= tMsg.faction,
 		}
 		
-		-- update tNeighbours and tNeighbourInfos, doing this here as well to make use of "replay" messages (i.e. plot information not comming from the owner)
+		-- update tNeighbours and tNeighbourInfos, doing this here as well to make use of 'replay' messages (i.e. plot information not comming from the owner)
 		local nId = tNeighboursKeys[tMsg.name]
 		if nId then
 			tNeighbours[nId].shareRatio = plotInfo.shareRatio
@@ -475,7 +476,7 @@ end
 
 function Addon:NeighbourAdd(strName)
 	if not strName then return end
-	Print('WYBMNRedux: Sending neighbour invite to: '..strName)
+	self:Print('Sending neighbour invite to: '..strName)
 	HousingLib.NeighborInviteByName(strName)
 end
 
@@ -483,7 +484,7 @@ function Addon:NeighbourRemove(iNeighbour)
 	if not iNeighbour then return end
 
 	if iNeighbour == 0 then
-		Print("Can't remove yourself.")
+		self:Print('Can\'t remove yourself.')
 		return
 	end
 	
@@ -498,14 +499,14 @@ end
 
 function Addon:OnHousingNeighborInviteAccepted(strName)
 	if strName and strName ~= '' then -- empty when it's us that have accepted an invite
-		Print('WYBMNRedux: '..strName.. ' accepted Your neighbour invite.')
+		self:Print(strName.. ' accepted Your neighbour invite.')
 	end
 	self:ScheduleTimer('RefreshNeighbourList', 3) -- it needs to be delayed, since HousingLib doesn't get an update immediately and NeighborsLoaded fires only after REMOVAL of a neigbour ...
 end
 
 function Addon:OnHousingNeighborInviteDeclined(strName)
 	if not strName or strName == '' then return end -- empty when it's us that have declined an invite
-	Print('WYBMNRedux: '..strName.. ' declined Your neighbour invite.')
+	self:Print(strName.. ' declined Your neighbour invite.')
 end
 
 function Addon:GetOnlineUsersFiltered()
@@ -534,17 +535,17 @@ function Addon:OnNeighborInviteReceived(strName)
 		local tOnlineUsersFiltered = self:GetOnlineUsersFiltered()
 		if not tOnlineUsersFiltered[strName] then
 			HousingLib.NeighborInviteDecline()
-			Print('WYBMNRedux: Neighbour invite from '..strName.. ' declined based on filters.')
+			self:Print('Neighbour invite from '..strName.. ' declined based on filters.')
 			return
 		end
 	end
 	if bAutoAccept then
 		HousingLib.NeighborInviteAccept()
-		Print('WYBMNRedux: Neighbour invite from '..strName.. ' accepted.')
+		self:Print('Neighbour invite from '..strName.. ' accepted.')
 		return
 	end
 
-	Apollo.GetAddon("NeighborList"):OnNeighborInviteRecieved(strName)
+	Apollo.GetAddon('NeighborList'):OnNeighborInviteRecieved(strName)
 end
 
 function Addon:OnGuildRoster(_, tRoster )
@@ -563,6 +564,12 @@ function Addon:OnGuildResult(_, strName, _, eResult )
 	end
 end
 
+do
+	local Print = Print
+	function Addon:Print(strMsg)
+		Print('WYBMNRedux: ' .. strMsg)
+	end
+end
 -----------------------------------------------------------------------------------------------
 -- Form Functions
 -----------------------------------------------------------------------------------------------
@@ -572,7 +579,10 @@ function Addon:OnButtonClose()
 end
 
 function Addon:OnButtonVisit()
-    if not HousingLib.IsHousingWorld() then return end
+	if not HousingLib.IsHousingWorld() then
+		self:Print('Cannot do that outside the housing system.')
+		return
+	end
 	
 	if db.char.targetNeighbour == 0 then
 		HousingLib.RequestTakeMeHome()
@@ -593,8 +603,8 @@ function Addon:OnButtonNext()
 end
 
 function Addon:OnButtonHome()
-	if not HousingLib:IsHousingWorld() then
-		Print('WYBMNRedux: Cannot do that outside the housing system.')
+	if not HousingLib.IsHousingWorld() then
+		self:Print('Cannot do that outside the housing system.')
 		return
 	end
 	HousingLib.RequestTakeMeHome()
@@ -606,9 +616,9 @@ function Addon:OnButtonDelete()
 end
 
 function Addon:OnConfigure()
-	self:GetModule("Settings"):Toggle()
+	self:GetModule('Settings'):Toggle()
 end
 
 function Addon:OnSearch()
-	self:GetModule("Search"):Toggle()
+	self:GetModule('Search'):Toggle()
 end

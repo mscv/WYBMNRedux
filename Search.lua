@@ -1,24 +1,24 @@
 local Apollo, XmlDoc = Apollo, XmlDoc
 local next = next
 
-local core = Apollo.GetAddon("WYBMNRedux")
-local module = core:NewModule("Search")
+local core = Apollo.GetAddon('WYBMNRedux')
+local module = core:NewModule('Search')
 
 local wndSearch, wndGrid, wndNodeType, wndNodeLevel, wndShareRatio
 local tNodeType2Name, tShares
 
 function module:OnInitialize()
-	self.xmlDoc = XmlDoc.CreateFromFile("Search.xml")
+	self.xmlDoc = XmlDoc.CreateFromFile('Search.xml')
 
 	tNodeType2Name = core.tNodeType2Name
 	tShares = core.tShares
 end
 
 function module:OnEnable()
-	wndSearch = Apollo.LoadForm(module.xmlDoc, "WYBMNReduxSearch", nil, module)
+	wndSearch = Apollo.LoadForm(module.xmlDoc, 'WYBMNReduxSearch', nil, module)
 	wndSearch:Show(false)
 	
-	wndGrid			= wndSearch:FindChild("wndSearch"):FindChild("wndGrid")
+	wndGrid			= wndSearch:FindChild('wndSearch'):FindChild('wndGrid')
 	wndNodeType		= wndSearch:FindChild('wndSettings'):FindChild('wndNodeType')
 	wndNodeLevel	= wndSearch:FindChild('wndSettings'):FindChild('wndNodeLevel')
 	wndShareRatio	= wndSearch:FindChild('wndSettings'):FindChild('wndShareRatio')

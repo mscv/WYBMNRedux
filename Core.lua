@@ -3,7 +3,7 @@ TO DO:
 1) convert tNeighbours into a circular DLL
 --]]
 
-local VERSION = '1.0.6'
+local VERSION = '1.1.0'
 local FAKE_WYBMN_VERSION = 1.047
 
 local ONLINE_STALE_TIME

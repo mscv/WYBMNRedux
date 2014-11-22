@@ -167,6 +167,8 @@ function Addon:OnEnable()
 		self:ScheduleRepeatingTimer('BroadcastOwnData', ONLINE_STALE_TIME)
 	end
 
+	Apollo.RegisterEventHandler('WindowManagementReady'      , 'OnWindowManagementReady'      , self)
+	
 	-- stuff here requires HousingLib to be fully loaded. There's no event for that, that I've found, so we keep trying ...
 	self:DelayedEnable()
 end
@@ -203,8 +205,6 @@ function Addon:DelayedEnable()
 	Apollo.RegisterEventHandler('HousingNeighborInviteAccepted', 'OnHousingNeighborInviteAccepted', self)
 	Apollo.RegisterEventHandler('HousingNeighborInviteDeclined', 'OnHousingNeighborInviteDeclined', self)
 
-	Apollo.RegisterEventHandler('WindowManagementReady'      , 'OnWindowManagementReady'      , self)
-	
 	Apollo.RegisterEventHandler('GuildRoster', 	'OnGuildRoster', self)
 	Apollo.RegisterEventHandler('GuildResult', 'OnGuildResult', self)
 	

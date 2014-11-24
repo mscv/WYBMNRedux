@@ -3,6 +3,13 @@ TO DO:
 1) convert tNeighbours into a circular DLL
 --]]
 
+require 'Apollo'
+require 'GameLib'
+require 'GuildLib'
+require 'HousingLib'
+require 'ICCommLib'
+require 'XmlDoc'
+
 local VERSION = '1.1.0'
 local FAKE_WYBMN_VERSION = 1.047
 
@@ -200,6 +207,7 @@ function Addon:DelayedEnable()
 	end
 	
 	Apollo.RegisterEventHandler('ChangeWorld', 'OnChangeWorld', self)
+	Apollo.RegisterEventHandler('HousingPanelControlOpen', 'UpdateOwnData', self) -- fires on entering your own plot and residence settings changes
 	
 	Apollo.RegisterEventHandler('HousingNeighborsLoaded', 'RefreshNeighbourList', self)
 	Apollo.RegisterEventHandler('HousingNeighborInviteAccepted', 'OnHousingNeighborInviteAccepted', self)
@@ -218,6 +226,7 @@ function Addon:DelayedEnable()
 	self:ScheduleTimer(removeNeighborListEventHandler, 5)
 
 	self:OnChangeWorld()
+	self:UpdateOwnData()
 end
 
 do
@@ -268,7 +277,6 @@ function Addon:RefreshNeighbourList()
 	self.myData.bFull = #tNeighbours - iRoomMates >= 100
 	
     self:UpdateTargetPlot()
-	
 	return true
 end
 
@@ -332,23 +340,20 @@ do
 end
 
 function Addon:OnChangeWorld()
-	if bAutoToggle then
-		if not HousingLib.IsHousingWorld() then 
-			if wndMain:IsShown() then wndMain:Close() return end
-		else
-			if not wndMain:IsShown() then wndMain:Invoke() end
-		end
+	if not HousingLib.IsHousingWorld() then
+		if bAutoToggle and wndMain:IsShown() then wndMain:Close() end
+		return
 	end
 	
-	if HousingLib.IsHousingWorld() and HousingLib.IsOnMyResidence() and not HousingLib.IsWarplotResidence() then
-		self:UpdateOwnData()
-	end
-	
+	if bAutoToggle and not wndMain:IsShown() then wndMain:Invoke() end
+
 	self:UpdateCurrentPlot()
     self:UpdateTargetPlot()
 end
 
 function Addon:UpdateOwnData()
+	if not HousingLib.IsOnMyResidence() then return end
+
 	local nodeType
 	for i=1,7 do
 		nodeType = tPlugItem2NodeType[HousingLib.GetPlot(i).nPlugItemId]
@@ -363,6 +368,8 @@ function Addon:UpdateOwnData()
 	end
 	
 	tNeighbours[0] = { name = self.myData.name, id = 0, lastOnline = 0 , shareRatio = self.myData.shareRatio, nodeType = self.myData.nodeType } -- update self
+	
+	self:UpdateCurrentPlot()
 end
 
 function Addon:BroadcastOwnData()

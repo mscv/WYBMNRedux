@@ -10,7 +10,7 @@ require 'HousingLib'
 require 'ICCommLib'
 require 'XmlDoc'
 
-local VERSION = '1.1.0'
+local VERSION = '1.1.1'
 local FAKE_WYBMN_VERSION = 1.047
 
 local ONLINE_STALE_TIME
@@ -168,9 +168,11 @@ function Addon:OnEnable()
 
 	if bAddonComms then
 		if bLegacySupport then -- listen to legacy plot info messages
-			self.channelPlotInfos = ICCommLib.JoinChannel('WillYouBeMyNeighborChannel', 'OnMessagePlotInfo', self)
+			self.channelPlotInfos = ICCommLib.JoinChannel('WillYouBeMyNeighborChannel', ICCommLib.CodeEnumICCommChannelType.Global)
+			self.channelPlotInfos:SetReceivedMessageFunction('OnMessagePlotInfo', self)
 		end
-		self.channelOnlineInfo = ICCommLib.JoinChannel('WillYouBeMyNeighborOnlineChannel', 'OnMessageOnlineInfo', self) -- we need this chan to listen at least to neighbours sending updates about their plots
+		self.channelOnlineInfo = ICCommLib.JoinChannel('WillYouBeMyNeighborOnlineChannel', ICCommLib.CodeEnumICCommChannelType.Global) -- we need this chan to listen at least to neighbours sending updates about their plots
+		self.channelOnlineInfo:SetReceivedMessageFunction('OnMessageOnlineInfo', self)
 		self:ScheduleRepeatingTimer('BroadcastOwnData', ONLINE_STALE_TIME)
 	end
 
@@ -374,9 +376,9 @@ end
 
 function Addon:BroadcastOwnData()
 	if not self.myData.nodeType then return end -- if this key doesn't exist, it means we don't have our data in the db or we have no harvest nodes at all => nothing to broadcast
-	self.channelOnlineInfo:SendMessage(self.myData)
+	self.channelOnlineInfo:SendMessage(self:Serialize(self.myData))
 	if bLegacySupport then
-		self.channelPlotInfos:SendMessage(self.myDataLegacy)
+		self.channelPlotInfos:SendMessage(self:Serialize(self.myDataLegacy))
 	end
 end
 
@@ -389,6 +391,7 @@ function Addon:NeighbourPrev()
 end
 
 function Addon:OnMessageOnlineInfo(_, tMsg)
+	tMsg = self:Deserialize(tMsg)
 	if not tMsg.nodeType and bLegacySupport and tMsg.name then -- fill in data from tPlotInfos, as this is a legacy message
 		local plotInfo = tPlotInfos[tMsg.name]
 		if not plotInfo then return end  -- just wait for the next message, the sender spams both types
@@ -452,6 +455,8 @@ do
 		['Elite-Dickicht']				= 35,
 	}
 	function Addon:OnMessagePlotInfo(_, tMsg)
+		tMsg = self:Deserialize(tMsg)
+		
 		if type(tMsg) ~= 'table' then return end
 		
 		if not tMsg.name or not tMsg.share or not tMsg.nodetype or not tMsg.faction or not tMsg.remaining or not tMsg.timestamp or not tMsg.version or type(tMsg.share) == 'table' then return end
@@ -577,6 +582,42 @@ do
 		Print('WYBMNRedux: ' .. strMsg)
 	end
 end
+
+function Addon:Serialize(t)
+	local tinsert, tremove, tconcat = table.insert, table.remove, table.concat
+	local type = type(t)
+	if type == "string" then
+		return ("%q"):format(t)
+	elseif type == "table" then
+		local tbl = {"{"}
+		local indexed = #t > 0
+		local hasValues = false
+		for k, v in pairs(t) do
+			hasValues = true
+			tinsert(tbl, indexed and self:Serialize(v) or "[" .. self:Serialize(k) .. "]=" .. self:Serialize(v))
+			tinsert(tbl, ",")
+		end
+		if hasValues then
+			tremove(tbl, #tbl)
+		end
+		tinsert(tbl, "}")
+		return tconcat(tbl)
+	end
+	return tostring(t)
+end
+
+function Addon:Deserialize(str)
+	local func = loadstring("return {" .. str .. "}")
+	if func then
+		setfenv(func, {})
+		local succeeded, ret = pcall(func)
+		if succeeded then
+			return unpack(ret)
+		end
+	end
+	return nil
+end
+
 -----------------------------------------------------------------------------------------------
 -- Form Functions
 -----------------------------------------------------------------------------------------------

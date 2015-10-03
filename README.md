@@ -14,8 +14,6 @@ After the add-on has been installed, you can show or hide the window by typing '
 
 You can configure the add-on by choosing 'Configure' in the addon list under WYBMNRedux or clicking an appropriate button in the addon gui itself.
 
-Most of the options are self explanatory. One option that is worth mentioning is the 'WillYouBeMyNeighbor compatibility mode'. With this option checked (default) WYBMNRedux acts as a drop in replacement for WillYouBeMyNeighbor. With this option turned off, you will only be able to see WYBMNRedux users, however the communication spam is reduced significantly. At some point in the future this option will default to off.
-
 ## I found a bug. How do I report it?
 
 Please report any bugs as a Github issue [here](https://github.com/mscv/WYBMNRedux/issues).

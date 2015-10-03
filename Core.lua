@@ -1,6 +1,10 @@
 --[[
 TO DO:
-1) convert tNeighbours into a circular DLL
+1) make use of newly available HousingLib.GetResidence() functionality:
+	* info on harvest splits and nodes now available for neighbour plots on visit
+	* info on repair state now available (both own and neighbour!
+2) add garden plot functionality
+3) test addon comms properly :)
 --]]
 
 require 'Apollo'
@@ -8,14 +12,12 @@ require 'GameLib'
 require 'GuildLib'
 require 'HousingLib'
 require 'ICCommLib'
+require 'ICComm'
 require 'XmlDoc'
 
-local VERSION = '1.1.1'
-local FAKE_WYBMN_VERSION = 1.047
+local VERSION = '1.2.0'
 
-local ONLINE_STALE_TIME
-local ONLINE_STALE_TIME_NEW = 30
-local ONLINE_STALE_TIME_LEGACY = 10 -- the original WYBMN ignores users not seen in the past 10s
+local ONLINE_STALE_TIME = 30
 
 
 local next, tsort, tremove, floor, max, getTime, rawset, strmatch, type = next, table.sort, table.remove, math.floor, math.max, os.time, rawset, string.match, type
@@ -41,21 +43,21 @@ local tShares = {
 local playerName = GameLib.GetAccountRealmCharacter().strCharacter
 
 local tNodeType2Name = {
-	[15] = HousingLib.GetPlugItem(517)[1].strName,
-	[25] = HousingLib.GetPlugItem(518)[1].strName,
-	[35] = HousingLib.GetPlugItem(520)[1].strName,
-	[11] = HousingLib.GetPlugItem(25)[1].strName,
-	[12] = HousingLib.GetPlugItem(26)[1].strName,
-	[13] = HousingLib.GetPlugItem(27)[1].strName,
-	[14] = HousingLib.GetPlugItem(44)[1].strName,
-	[21] = HousingLib.GetPlugItem(28)[1].strName,
-	[22] = HousingLib.GetPlugItem(30)[1].strName,
-	[23] = HousingLib.GetPlugItem(31)[1].strName,
-	[24] = HousingLib.GetPlugItem(46)[1].strName,
-	[31] = HousingLib.GetPlugItem(100)[1].strName,
-	[32] = HousingLib.GetPlugItem(121)[1].strName,
-	[33] = HousingLib.GetPlugItem(122)[1].strName,
-	[34] = HousingLib.GetPlugItem(123)[1].strName,
+	[15] = HousingLib.GetPlugItem(517).strName,
+	[25] = HousingLib.GetPlugItem(518).strName,
+	[35] = HousingLib.GetPlugItem(520).strName,
+	[11] = HousingLib.GetPlugItem(25).strName,
+	[12] = HousingLib.GetPlugItem(26).strName,
+	[13] = HousingLib.GetPlugItem(27).strName,
+	[14] = HousingLib.GetPlugItem(44).strName,
+	[21] = HousingLib.GetPlugItem(28).strName,
+	[22] = HousingLib.GetPlugItem(30).strName,
+	[23] = HousingLib.GetPlugItem(31).strName,
+	[24] = HousingLib.GetPlugItem(46).strName,
+	[31] = HousingLib.GetPlugItem(100).strName,
+	[32] = HousingLib.GetPlugItem(121).strName,
+	[33] = HousingLib.GetPlugItem(122).strName,
+	[34] = HousingLib.GetPlugItem(123).strName,
 }
 
 local tPlugItem2NodeType = {
@@ -76,7 +78,7 @@ local tPlugItem2NodeType = {
 	[123] = 34,
 }
 
-local bAddonComms, bLegacySupport, bAutoToggle, bAutoAccept, bAutoDecline, bNoDeclineGuild
+local bAddonComms, bAutoToggle, bAutoAccept, bAutoDecline, bNoDeclineGuild
 
 local wndMain, wndCurrentPlot, wndTargetPlot, wndCounter
 
@@ -109,7 +111,6 @@ function Addon:OnInitialize()
 	local defaults = {
 		char = {
 			myData = { name = playerName, faction = 0 },
-			myDataLegacy = { name = playerName, activity = 0, month = 0, remaining = 0, version = FAKE_WYBMN_VERSION, faction = 0 },
 			tNeighbourInfos = {},
 			filterNodeType		= 1,
 			filterNodeLevel		= 1,
@@ -118,7 +119,6 @@ function Addon:OnInitialize()
 		},
 		profile = {
 			bAddonComms			= true,
-			bLegacySupport		= false,
 			bAutoToggle			= true,
 			bAutoAccept			= false,
 			bAutoDecline		= false,
@@ -156,21 +156,13 @@ function Addon:OnEnable()
 	tNeighbourInfos = db.char.tNeighbourInfos
 	
 	self.myData = db.char.myData
-	self.myDataLegacy = db.char.myDataLegacy
 	if self.myData.faction == 0 then
 		self.myData.faction = GameLib.GetPlayerUnit():GetFaction()
-		self.myDataLegacy.faction = self.myData.faction
 	end
 	
 	self:DbProfileUpdate()
 	
-	ONLINE_STALE_TIME = bLegacySupport and ONLINE_STALE_TIME_LEGACY or ONLINE_STALE_TIME_NEW
-
 	if bAddonComms then
-		if bLegacySupport then -- listen to legacy plot info messages
-			self.channelPlotInfos = ICCommLib.JoinChannel('WillYouBeMyNeighborChannel', ICCommLib.CodeEnumICCommChannelType.Global)
-			self.channelPlotInfos:SetReceivedMessageFunction('OnMessagePlotInfo', self)
-		end
 		self.channelOnlineInfo = ICCommLib.JoinChannel('WillYouBeMyNeighborOnlineChannel', ICCommLib.CodeEnumICCommChannelType.Global) -- we need this chan to listen at least to neighbours sending updates about their plots
 		self.channelOnlineInfo:SetReceivedMessageFunction('OnMessageOnlineInfo', self)
 		self:ScheduleRepeatingTimer('BroadcastOwnData', ONLINE_STALE_TIME)
@@ -188,7 +180,6 @@ end
 
 function Addon:DbProfileUpdate()
 	bAddonComms		= db.profile.bAddonComms
-	bLegacySupport	= db.profile.bLegacySupport
 	bAutoToggle		= db.profile.bAutoToggle
 	bAutoAccept		= db.profile.bAutoAccept
 	bAutoDecline	= db.profile.bAutoDecline
@@ -310,15 +301,15 @@ do
 	end
 
 	function Addon:UpdateCurrentPlot()
-		local ownerName
-		if HousingLib.IsHousingWorld() and not HousingLib.IsWarplotResidence() then
-			ownerName = HousingLib.IsOnMyResidence() and playerName or strmatch(GetCurrentZoneName() or 'UNKNOWN', '%[([^%]]+)%]')
-			if not ownerName then
+		local currentResidence
+		if HousingLib.IsHousingWorld() then
+			currentResidence = HousingLib.GetResidence()
+			if not currentResidence or not currentResidence:GetPropertyOwnerName() then
 				self:ScheduleTimer('OnChangeWorld', 0.5)
 				return
 			end
 		end
-		
+		local ownerName = currentResidence:GetPropertyOwnerName()
 		local tOwnerData = tNeighbours[tNeighboursKeys[ownerName]] or { name = ownerName }
 		
 		wndCurrentPlot:FindChild('plotName'):SetText(tOwnerData.name or 'Unknown')
@@ -350,7 +341,7 @@ function Addon:OnChangeWorld()
 	if bAutoToggle and not wndMain:IsShown() then wndMain:Invoke() end
 
 	self:UpdateCurrentPlot()
-    self:UpdateTargetPlot()
+	self:UpdateTargetPlot()
 end
 
 function Addon:UpdateOwnData()
@@ -358,16 +349,11 @@ function Addon:UpdateOwnData()
 
 	local nodeType
 	for i=1,7 do
-		nodeType = tPlugItem2NodeType[HousingLib.GetPlot(i).nPlugItemId]
+		nodeType = tPlugItem2NodeType[HousingLib.GetPlot(i):GetPlugItemId()]
 		if nodeType then break	end
 	end
 	self.myData.nodeType = nodeType
-	self.myData.shareRatio = HousingLib.GetNeighborHarvestSplit()
-	if bLegacySupport then
-		self.myDataLegacy.share		= self.myData.shareRatio
-		self.myDataLegacy.nodetype	= tNodeType2Name[self.myData.nodeType]
-		self.myDataLegacy.timestamp	= getTime() + 100000 -- doesn't matter
-	end
+	self.myData.shareRatio = HousingLib.GetResidence():GetNeighborHarvestSplit()
 	
 	tNeighbours[0] = { name = self.myData.name, id = 0, lastOnline = 0 , shareRatio = self.myData.shareRatio, nodeType = self.myData.nodeType } -- update self
 	
@@ -377,9 +363,6 @@ end
 function Addon:BroadcastOwnData()
 	if not self.myData.nodeType then return end -- if this key doesn't exist, it means we don't have our data in the db or we have no harvest nodes at all => nothing to broadcast
 	self.channelOnlineInfo:SendMessage(self:Serialize(self.myData))
-	if bLegacySupport then
-		self.channelPlotInfos:SendMessage(self:Serialize(self.myDataLegacy))
-	end
 end
 
 function Addon:NeighbourNext()
@@ -392,17 +375,6 @@ end
 
 function Addon:OnMessageOnlineInfo(_, tMsg)
 	tMsg = self:Deserialize(tMsg)
-	if not tMsg.nodeType and bLegacySupport and tMsg.name then -- fill in data from tPlotInfos, as this is a legacy message
-		local plotInfo = tPlotInfos[tMsg.name]
-		if not plotInfo then return end  -- just wait for the next message, the sender spams both types
-		
-		tMsg.nodeType	= plotInfo.nodeType
-		tMsg.shareRatio	= plotInfo.shareRatio
-		tMsg.faction	= plotInfo.faction
-		
-		tMsg.legacy		= true
-	end
-	
 	if not tMsg.name or not tMsg.nodeType or not tMsg.shareRatio or not tMsg.faction or tMsg.faction ~= self.myData.faction then return end
 	
 	local nId = tNeighboursKeys[tMsg.name]
@@ -413,76 +385,6 @@ function Addon:OnMessageOnlineInfo(_, tMsg)
 	elseif not tMsg.bFull then
 		tMsg.lastSeen = getTime()
 		tOnlineUsers[tMsg.name] = tMsg
-	end
-end
-
-
---XXX required only for legacy WYBMN support
-do
-	local tNodeName2Type = {
-		-- enUS
-		['Mineral Deposit Tier 1']		= 11,
-		['Mineral Deposit Tier 2']		= 12,
-		['Mineral Deposit Tier 3']		= 13,
-		['Mineral Deposit Tier 4']		= 14,
-		['Elite Mineral Deposit']		= 15,
-		['Relic Excavation Tier 1']		= 21,
-		['Relic Excavation Tier 2']		= 22,
-		['Relic Excavation Tier 3']		= 23,
-		['Relic Excavation Tier 4']		= 24,
-		['Elite Relic Excavation']		= 25,
-		['Thicket Tier 1']				= 31,
-		['Thicket Tier 2']				= 32,
-		['Thicket Tier 3']				= 33,
-		['Thicket Tier 4']				= 34,
-		['Elite Thicket']				= 35,
-
-		-- deDe
-		['Mineralvorkommen (Rang 1)']	= 11,
-		['Mineralvorkommen (Rang 2)']	= 12,
-		['Mineralvorkommen (Rang 3)']	= 13,
-		['Mineralvorkommen (Rang 4)']	= 14,
-		['Elite-Mineralvorkommen']		= 15,
-		['Reliktausgrabung (Rang 1)']	= 21,
-		['Reliktausgrabung (Rang 2)']	= 22,
-		['Reliktausgrabung (Rang 3)']	= 23,
-		['Reliktausgrabung (Rang 4)']	= 24,
-		['Elite-Reliktausgrabung']		= 25,
-		['Dickicht (Rang 1)']			= 31,
-		['Dickicht (Rang 2)']			= 32,
-		['Dickicht (Rang 3)']			= 33,
-		['Dickicht (Rang 4)']			= 34,
-		['Elite-Dickicht']				= 35,
-	}
-	function Addon:OnMessagePlotInfo(_, tMsg)
-		tMsg = self:Deserialize(tMsg)
-		
-		if type(tMsg) ~= 'table' then return end
-		
-		if not tMsg.name or not tMsg.share or not tMsg.nodetype or not tMsg.faction or not tMsg.remaining or not tMsg.timestamp or not tMsg.version or type(tMsg.share) == 'table' then return end
-
-		if tMsg.faction ~= self.myData.faction then return end -- not sure if addon comms are xfaction
-
-		if not tNodeName2Type[tMsg.nodetype] then return end -- no nodes or not supported lang
-		
-		if tPlotInfos[tMsg.name] and tPlotInfos[tMsg.name].timeStamp >= tMsg.timestamp then return end -- old data received
-
-		local plotInfo = {
-			timeStamp	= tMsg.timestamp,
-			shareRatio	= tMsg.share,
-			nodeType	= tNodeName2Type[tMsg.nodetype],
-			faction		= tMsg.faction,
-		}
-		
-		-- update tNeighbours and tNeighbourInfos, doing this here as well to make use of 'replay' messages (i.e. plot information not comming from the owner)
-		local nId = tNeighboursKeys[tMsg.name]
-		if nId then
-			tNeighbours[nId].shareRatio = plotInfo.shareRatio
-			tNeighbours[nId].nodeType	= plotInfo.nodeType
-			tNeighbourInfos[tMsg.name]	= plotInfo
-		else
-			tPlotInfos[tMsg.name] = plotInfo -- update tPlotInfos to supplement online messages, not doing it for neighbours, as there isn't really a point
-		end
 	end
 end
 
@@ -528,11 +430,10 @@ function Addon:GetOnlineUsersFiltered()
 	local filterNodeLevel = db.char.filterNodeLevel
 	local filterShareRatio = db.char.filterShareRatio
 	
-	local staleTimeNew = getTime() - ONLINE_STALE_TIME_NEW
-	local staleTimeLegacy = getTime() - ONLINE_STALE_TIME_LEGACY
+	local staleTimeNew = getTime() - ONLINE_STALE_TIME
 
 	for k,v in next, tOnlineUsers do
-		if v.lastSeen < (v.legacy and staleTimeLegacy or staleTimeNew) or tNeighboursKeys[k]  then -- purge old data & people we have just added to neighbours
+		if v.lastSeen < staleTimeNew or tNeighboursKeys[k]  then -- purge old data & people we have just added to neighbours
 			tOnlineUsers[k] = nil
 		elseif floor(v.nodeType / 10) == filterNodeType and v.nodeType%10 >= filterNodeLevel and v.shareRatio >= filterShareRatio then
 			tFiltered[k] = v

@@ -44,11 +44,6 @@ function module:OnBtnAddonComms(wndHandler, wndControl)
 	core:DbProfileUpdate() -- needed to refresh upvalues from db.profile in core
 end
 
-function module:OnBtnLegacySupport(wndHandler, wndControl)
-	core.db.profile.bLegacySupport = wndControl:IsChecked()
-	core:DbProfileUpdate() -- needed to refresh upvalues from db.profile in core
-end
-
 function module:OnBtnAutoAccept(wndHandler, wndControl)
 	core.db.profile.bAutoAccept = wndControl:IsChecked()
 	core:DbProfileUpdate() -- needed to refresh upvalues from db.profile in core

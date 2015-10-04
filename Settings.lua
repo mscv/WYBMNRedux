@@ -9,7 +9,6 @@ local wndSettings
 local function dbProfileUpdate()
 	wndSettings:FindChild('btnAutoToggle'):SetCheck(core.db.profile.bAutoToggle)
 	wndSettings:FindChild('btnAddonComms'):SetCheck(core.db.profile.bAddonComms)
-	wndSettings:FindChild('btnLegacySupport'):SetCheck(core.db.profile.bLegacySupport)
 	wndSettings:FindChild('btnAutoAccept'):SetCheck(core.db.profile.bAutoAccept)
 	wndSettings:FindChild('btnAutoDecline'):SetCheck(core.db.profile.bAutoDecline)
 	wndSettings:FindChild('btnNoDeclineGuild'):SetCheck(core.db.profile.bNoDeclineGuild)

@@ -349,7 +349,7 @@ function Addon:UpdateOwnData()
 
 	local nodeType
 	for i=1,7 do
-		nodeType = tPlugItem2NodeType[HousingLib.GetPlot(i):GetPlugItemId()]
+		nodeType = tPlugItem2NodeType[HousingLib.GetPlot(i):GetPlugItemId() or 0]
 		if nodeType then break	end
 	end
 	self.myData.nodeType = nodeType
@@ -516,7 +516,7 @@ function Addon:Deserialize(str)
 			return unpack(ret)
 		end
 	end
-	return nil
+	return {}
 end
 
 -----------------------------------------------------------------------------------------------

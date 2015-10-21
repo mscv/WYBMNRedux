@@ -11,6 +11,7 @@ require 'Apollo'
 require 'GameLib'
 require 'GuildLib'
 require 'HousingLib'
+require 'Residence'
 require 'ICCommLib'
 require 'ICComm'
 require 'XmlDoc'
@@ -301,15 +302,16 @@ do
 	end
 
 	function Addon:UpdateCurrentPlot()
-		local currentResidence
-		if HousingLib.IsHousingWorld() then
-			currentResidence = HousingLib.GetResidence()
-			if not currentResidence or not currentResidence:GetPropertyOwnerName() then
-				self:ScheduleTimer('OnChangeWorld', 0.5)
-				return
-			end
+		local ownerName
+		
+		local currentResidence = HousingLib.GetResidence()
+		if currentResidence then
+			ownerName = currentResidence:GetPropertyOwnerName()
+		elseif HousingLib.IsHousingWorld() then
+			self:ScheduleTimer('OnChangeWorld', 0.5)
+			return
 		end
-		local ownerName = currentResidence:GetPropertyOwnerName()
+		
 		local tOwnerData = tNeighbours[tNeighboursKeys[ownerName]] or { name = ownerName }
 		
 		wndCurrentPlot:FindChild('plotName'):SetText(tOwnerData.name or 'Unknown')

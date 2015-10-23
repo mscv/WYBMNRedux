@@ -111,7 +111,7 @@ function Addon:OnInitialize()
 	
 	local defaults = {
 		char = {
-			myData = { name = playerName, faction = 0 },
+			myData = { name = playerName, faction = 0, privacyLevel = 4 },
 			tNeighbourInfos = {},
 			filterNodeType		= 1,
 			filterNodeLevel		= 1,
@@ -350,19 +350,23 @@ function Addon:OnChangeWorld()
 end
 
 function Addon:UpdateOwnData()
+	local currentResidence = HousingLib.GetResidence()
+	if not currentResidence then return end
+	
 	local nodeType
-	for i=1, HousingLib.GetResidence():GetPlotCount() do
+	for i=1, currentResidence:GetPlotCount() do
 		nodeType = tPlugItem2NodeType[HousingLib.GetPlot(i):GetPlugItemId() or 0]
 		if nodeType then break	end
 	end
 	self.myData.nodeType = nodeType
-	self.myData.shareRatio = HousingLib.GetResidence():GetNeighborHarvestSplit()
+	self.myData.shareRatio = currentResidence:GetNeighborHarvestSplit()
+	self.myData.privacyLevel = currentResidence:GetResidencePrivacyLevel()
 	
 	tNeighbours[0] = { name = self.myData.name, id = 0, lastOnline = 0 , shareRatio = self.myData.shareRatio, nodeType = self.myData.nodeType } -- update self
 end
 
 function Addon:BroadcastOwnData()
-	if not self.myData.nodeType then return end -- if this key doesn't exist, it means we don't have our data in the db or we have no harvest nodes at all => nothing to broadcast
+	if not self.myData.nodeType or self.myData.privacyLevel > 1 then return end -- if nodeType doesn't exist, it means we don't have our data in the db or we have no harvest nodes at all; privacyLevel > 1 means roommates or better => nothing to broadcast
 	self.channelOnlineInfo:SendMessage(self:Serialize(self.myData))
 end
 

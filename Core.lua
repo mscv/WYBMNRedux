@@ -10,13 +10,13 @@ TO DO:
 require 'Apollo'
 require 'GameLib'
 require 'GuildLib'
+require 'HousingPlot'
 require 'HousingLib'
-require 'Residence'
 require 'ICCommLib'
 require 'ICComm'
 require 'XmlDoc'
 
-local VERSION = '1.2.0'
+local VERSION = '1.3.0'
 
 local ONLINE_STALE_TIME = 30
 
@@ -201,16 +201,16 @@ function Addon:DelayedEnable()
 	end
 	
 	Apollo.RegisterEventHandler('ChangeWorld', 'OnChangeWorld', self)
-	Apollo.RegisterEventHandler('HousingPanelControlOpen', 'UpdateOwnData', self) -- fires on entering your own plot and residence settings changes
 	
 	Apollo.RegisterEventHandler('HousingNeighborsLoaded', 'RefreshNeighbourList', self)
 	Apollo.RegisterEventHandler('HousingNeighborInviteAccepted', 'OnHousingNeighborInviteAccepted', self)
 	Apollo.RegisterEventHandler('HousingNeighborInviteDeclined', 'OnHousingNeighborInviteDeclined', self)
 
-	Apollo.RegisterEventHandler('GuildRoster', 	'OnGuildRoster', self)
+	Apollo.RegisterEventHandler('GuildRoster', 'OnGuildRoster', self)
 	Apollo.RegisterEventHandler('GuildResult', 'OnGuildResult', self)
 	
-	Apollo.RegisterEventHandler('HousingNeighborInviteRecieved', 	'OnNeighborInviteReceived', self)
+	Apollo.RegisterEventHandler('HousingNeighborInviteRecieved', 'OnNeighborInviteReceived', self)
+	Apollo.RegisterEventHandler('HousingPlotsRecieved', 'OnPlotsReceived', self)
 	
 	for _, v in next, GuildLib.GetGuilds() do
 		v:RequestMembers()
@@ -220,7 +220,7 @@ function Addon:DelayedEnable()
 	self:ScheduleTimer(removeNeighborListEventHandler, 5)
 
 	self:OnChangeWorld()
-	self:UpdateOwnData()
+	self:OnPlotsReceived()
 end
 
 do
@@ -230,6 +230,18 @@ do
 	end
 end
 
+function Addon:OnPlotsReceived()
+-- this event fires twice for some reason: the 1st time GetPlotCount() returns 0, the plots are NOT loaded, the 2nd time everything is in order
+	if not HousingLib.IsHousingWorld() or HousingLib.GetResidence():GetPlotCount() == 0 then return end
+
+	if HousingLib.IsOnMyResidence() then
+		self:UpdateOwnData()
+	end
+	
+	self:UpdateCurrentPlot()
+	self:UpdateTargetPlot()
+
+end
 -- on SlashCommand '/wybmnr'
 function Addon:OnSlashCmd()
 	wndMain:Invoke() -- show the window
@@ -302,15 +314,8 @@ do
 	end
 
 	function Addon:UpdateCurrentPlot()
-		local ownerName
-		
 		local currentResidence = HousingLib.GetResidence()
-		if currentResidence then
-			ownerName = currentResidence:GetPropertyOwnerName()
-		elseif HousingLib.IsHousingWorld() then
-			self:ScheduleTimer('OnChangeWorld', 0.5)
-			return
-		end
+		local ownerName = currentResidence and currentResidence:GetPropertyOwnerName() or 'Unknown'
 		
 		local tOwnerData = tNeighbours[tNeighboursKeys[ownerName]] or { name = ownerName }
 		
@@ -335,22 +340,18 @@ do
 end
 
 function Addon:OnChangeWorld()
-	if not HousingLib.IsHousingWorld() then
-		if bAutoToggle and wndMain:IsShown() then wndMain:Close() end
-		return
-	end
-	
-	if bAutoToggle and not wndMain:IsShown() then wndMain:Invoke() end
+	if not bAutoToggle then return end
 
-	self:UpdateCurrentPlot()
-	self:UpdateTargetPlot()
+	if HousingLib.IsHousingWorld() then
+		wndMain:Invoke()
+	else
+		wndMain:Close()
+	end
 end
 
 function Addon:UpdateOwnData()
-	if not HousingLib.IsOnMyResidence() then return end
-
 	local nodeType
-	for i=1,7 do
+	for i=1, HousingLib.GetResidence():GetPlotCount() do
 		nodeType = tPlugItem2NodeType[HousingLib.GetPlot(i):GetPlugItemId() or 0]
 		if nodeType then break	end
 	end
@@ -358,8 +359,6 @@ function Addon:UpdateOwnData()
 	self.myData.shareRatio = HousingLib.GetResidence():GetNeighborHarvestSplit()
 	
 	tNeighbours[0] = { name = self.myData.name, id = 0, lastOnline = 0 , shareRatio = self.myData.shareRatio, nodeType = self.myData.nodeType } -- update self
-	
-	self:UpdateCurrentPlot()
 end
 
 function Addon:BroadcastOwnData()
